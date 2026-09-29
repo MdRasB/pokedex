@@ -362,8 +362,8 @@ h4 {
 
     padding: 5px 11px;
 
-    background: #f3cf45;
-    color: #161616;
+    background: var(--type-bg, #f3cf45);
+    color: var(--type-fg, #161616);
 
     border-radius: 999px;
 
@@ -557,13 +557,14 @@ h4 {
 }
 
 .moves-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
 }
 
 .move-item {
-    padding: 14px;
+    min-width: 0;
+    padding: 10px 12px;
 
     background: #101f34;
     border: 1px solid #293f5a;
@@ -579,7 +580,7 @@ h4 {
 }
 
 .move-top h4 {
-    font-size: 0.9rem;
+    font-size: 0.82rem;
 }
 
 .move-type {
@@ -587,8 +588,8 @@ h4 {
 
     padding: 4px 8px;
 
-    background: #253b55;
-    color: #a9dff0;
+    background: var(--type-bg, #253b55);
+    color: var(--type-fg, #a9dff0);
 
     border-radius: 999px;
 
@@ -600,22 +601,22 @@ h4 {
 .move-details {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 12px;
+    gap: 4px 10px;
 
-    margin-top: 10px;
+    margin-top: 8px;
 }
 
 .move-details span {
     color: #8ea0b4;
-    font-size: 0.68rem;
+    font-size: 0.65rem;
 }
 
 .move-effect {
-    margin-top: 10px;
+    margin-top: 8px;
 
     color: #bac7d5;
-    font-size: 0.73rem;
-    line-height: 1.5;
+    font-size: 0.7rem;
+    line-height: 1.45;
 }
 
 .load-more-btn {
@@ -632,6 +633,10 @@ h4 {
 
     font-size: 0.75rem;
     font-weight: 700;
+}
+
+.load-more-btn[hidden] {
+    display: none;
 }
 
 .load-more-btn:hover {
@@ -688,18 +693,60 @@ h4 {
     border: 0;
 }
 
+/* Each row sets --bar; the first declaration is a solid fallback,
+   the second adds a soft fade for browsers that support color-mix. */
+.stat-row {
+    --bar: #86b8c9;
+}
+
+/* API order: HP, Attack, Defense, Sp. Atk, Sp. Def, Speed */
+.stat-row:nth-child(1) {
+    --bar: #7fbf9f;
+}
+
+.stat-row:nth-child(2) {
+    --bar: #d99a86;
+}
+
+.stat-row:nth-child(3) {
+    --bar: #d3b985;
+}
+
+.stat-row:nth-child(4) {
+    --bar: #a79ad8;
+}
+
+.stat-row:nth-child(5) {
+    --bar: #86b8c9;
+}
+
+.stat-row:nth-child(6) {
+    --bar: #d6a3bb;
+}
+
+.stat-bar {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+}
+
 .stat-bar::-webkit-progress-bar {
-    background: #172940;
+    background: rgba(255, 255, 255, 0.06);
     border-radius: 999px;
 }
 
 .stat-bar::-webkit-progress-value {
-    background: #5ed0ef;
+    background: var(--bar);
+    background: linear-gradient(90deg,
+            color-mix(in srgb, var(--bar) 45%, transparent),
+            var(--bar));
     border-radius: 999px;
 }
 
 .stat-bar::-moz-progress-bar {
-    background: #5ed0ef;
+    background: var(--bar);
+    background: linear-gradient(90deg,
+            color-mix(in srgb, var(--bar) 45%, transparent),
+            var(--bar));
     border-radius: 999px;
 }
 
@@ -810,6 +857,119 @@ h4 {
 
 
 /* =========================================================
+   TYPE COLORS
+   Applies to Pokemon type badges and move types.
+   script.js sets data-type="<type>" on both.
+   Unknown types fall back to the default colors above.
+   ========================================================= */
+
+:is(.type-badge, .move-type)[data-type="normal"] {
+    --type-bg: #a8a878;
+    --type-fg: #161616;
+}
+
+:is(.type-badge, .move-type)[data-type="fire"] {
+    --type-bg: #f08030;
+    --type-fg: #161616;
+}
+
+:is(.type-badge, .move-type)[data-type="water"] {
+    --type-bg: #2f6fdb;
+    --type-fg: #ffffff;
+}
+
+:is(.type-badge, .move-type)[data-type="electric"] {
+    --type-bg: #f7d02c;
+    --type-fg: #161616;
+}
+
+:is(.type-badge, .move-type)[data-type="grass"] {
+    --type-bg: #5cbf4f;
+    --type-fg: #10240d;
+}
+
+:is(.type-badge, .move-type)[data-type="ice"] {
+    --type-bg: #7fd6e0;
+    --type-fg: #0c2a30;
+}
+
+:is(.type-badge, .move-type)[data-type="fighting"] {
+    --type-bg: #c03028;
+    --type-fg: #ffffff;
+}
+
+:is(.type-badge, .move-type)[data-type="poison"] {
+    --type-bg: #a040a0;
+    --type-fg: #ffffff;
+}
+
+:is(.type-badge, .move-type)[data-type="ground"] {
+    --type-bg: #d9b65a;
+    --type-fg: #2a1f05;
+}
+
+:is(.type-badge, .move-type)[data-type="flying"] {
+    --type-bg: #8fa8f0;
+    --type-fg: #101a3a;
+}
+
+:is(.type-badge, .move-type)[data-type="psychic"] {
+    --type-bg: #f85888;
+    --type-fg: #2b0714;
+}
+
+:is(.type-badge, .move-type)[data-type="bug"] {
+    --type-bg: #a8b820;
+    --type-fg: #1c2205;
+}
+
+:is(.type-badge, .move-type)[data-type="rock"] {
+    --type-bg: #b8a038;
+    --type-fg: #241e06;
+}
+
+:is(.type-badge, .move-type)[data-type="ghost"] {
+    --type-bg: #705898;
+    --type-fg: #ffffff;
+}
+
+:is(.type-badge, .move-type)[data-type="dragon"] {
+    --type-bg: #6038f8;
+    --type-fg: #ffffff;
+}
+
+:is(.type-badge, .move-type)[data-type="dark"] {
+    --type-bg: #705848;
+    --type-fg: #ffffff;
+}
+
+:is(.type-badge, .move-type)[data-type="steel"] {
+    --type-bg: #b8b8d0;
+    --type-fg: #1a1a2a;
+}
+
+:is(.type-badge, .move-type)[data-type="fairy"] {
+    --type-bg: #ee99ac;
+    --type-fg: #311018;
+}
+
+:is(.type-badge, .move-type)[data-type="stellar"] {
+    --type-bg: #40b5a5;
+    --type-fg: #06231f;
+}
+
+:is(.type-badge, .move-type)[data-type="shadow"] {
+    --type-bg: #4a3f6b;
+    --type-fg: #ffffff;
+}
+
+:is(.type-badge, .move-type)[data-type="unknown"] {
+    --type-bg: #68a090;
+    --type-fg: #06231f;
+}
+
+
+/* =========================================================
    FOCUS STATES
    ========================================================= */
 
@@ -877,6 +1037,14 @@ input:focus-visible {
     .stat-row {
         grid-template-columns: 75px 1fr 30px;
         gap: 7px;
+    }
+}
+
+
+@media (max-width: 560px) {
+
+    .moves-list {
+        grid-template-columns: 1fr;
     }
 }
 
