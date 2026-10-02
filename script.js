@@ -62,6 +62,7 @@ const selectedSpriteLabel = document.getElementById("selectedSpriteLabel");
 // App state
 let currentPokemon = null;
 let currentSpecies = null;
+let activeSearchToken = 0;
 
 let moveIndex = 0;
 const movesPerPage = 10;
@@ -86,6 +87,23 @@ function formatName(text){
         words[i] = words[i].charAt(0).toUpperCase() + words[i].slice(1);
     }
     return words.join(" ");
+}
+
+function normalizePokemonQuery(value){
+    const input = String(value).trim().toLowerCase();
+    if(!input){
+        return "";
+    }
+
+    if(input === "nidoran♀" || input === "nidoran female") return "nidoran-f";
+    if(input === "nidoran♂" || input === "nidoran male") return "nidoran-m";
+
+    return input.normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[.'’]/g, "")
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/-{2,}/g, "-")
+        .replace(/^-|-$/g, "");
 }
 
 function shuffle(items){
@@ -754,13 +772,17 @@ function renderPokemon(pokemonData,speciesData){
 }
 // Search
 async function searchPokemon(name){
-    const query = name.trim().toLowerCase();
+    const query = normalizePokemonQuery(name);
 
     if(query === ""){
+        activeSearchToken++;
+        searchBtn.disabled = false;
+        searchBtnLabel.textContent = "Search";
         showError( "Please enter a Pokemon name or number.");
         return;
     }
 
+    const searchToken = ++activeSearchToken;
     searchBtn.disabled = true;
     searchBtnLabel.textContent = "Searching...";
     showLoading();
@@ -775,10 +797,12 @@ async function searchPokemon(name){
             speciesData = null;
         }
 
+        if(searchToken !== activeSearchToken) return;
         renderPokemon( pokemonData, speciesData);
         hideStatus();
 
     }catch(error){
+        if(searchToken !== activeSearchToken) return;
         pokemonCard.hidden = true;
 
         currentPokemon = null;
@@ -789,8 +813,10 @@ async function searchPokemon(name){
         showError(error.message);
 
     }finally{
-        searchBtn.disabled = false;
-        searchBtnLabel.textContent = "Search";
+        if(searchToken === activeSearchToken){
+            searchBtn.disabled = false;
+            searchBtnLabel.textContent = "Search";
+        }
     }
 }
 // Form
