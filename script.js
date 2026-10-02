@@ -5,6 +5,7 @@ const PokeAPI = "https://pokeapi.co/api/v2/pokemon";
 const searchForm = document.getElementById("searchForm");
 const pokemonInput = document.getElementById("pokemonInput");
 const searchBtn = document.getElementById("searchBtn");
+const searchBtnLabel = document.getElementById("searchBtnLabel");
 const chipButtons = document.querySelectorAll(".chip-btn");
 
 const statusMsg = document.getElementById("statusMsg");
@@ -13,9 +14,7 @@ const errorState = document.getElementById("errorState");
 const errorMessage = document.getElementById("errorMessage");
 
 const pokemonCard = document.getElementById("pokemonCard");
-const cardEyebrow = document.getElementById("cardEyebrow");
 const cardId = document.getElementById("cardId");
-const cardTypeLabel = document.getElementById("cardTypeLabel");
 const cardName = document.getElementById("cardName");
 const cardTypes = document.getElementById("cardTypes");
 const cardImage = document.getElementById("cardImage");
@@ -146,16 +145,9 @@ function renderPokemonHeader(data){
     pokemonCard.dataset.type = primaryType;
     pokemonCard.hidden = false;
 
-    cardEyebrow.textContent = formatName(primaryType) + " Type - Pokedex Entry";
     cardId.textContent = "#" + String(data.id).padStart(3,"0");
     cardName.textContent = formatName(data.name);
 
-    const typeNames = [];
-    for(let i = 0; i < data.types.length; i++){
-        typeNames.push( formatName(data.types[i].type.name));
-    }
-
-    cardTypeLabel.textContent = typeNames.join(" / ") + " Type";
     renderTypes(cardTypes,data.types);
 
     const imageUrl = data.sprites.other?.["official-artwork"]?.front_default || data.sprites.front_default;
@@ -266,6 +258,9 @@ async function fetchMove(url){
 function renderMove(entry,data){
     const item = document.createElement("article");
     item.className = "move-item";
+    if(data?.type?.name){
+        item.dataset.type = data.type.name;
+    }
 
 
     const top = document.createElement("div");
@@ -728,7 +723,7 @@ async function searchPokemon(name){
     }
 
     searchBtn.disabled = true;
-    searchBtn.textContent = "Searching...";
+    searchBtnLabel.textContent = "Searching...";
     showLoading();
 
     try{
@@ -756,7 +751,7 @@ async function searchPokemon(name){
 
     }finally{
         searchBtn.disabled = false;
-        searchBtn.textContent = "Search";
+        searchBtnLabel.textContent = "Search";
     }
 }
 // Form
