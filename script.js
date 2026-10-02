@@ -27,6 +27,8 @@ const cardGeneration = document.getElementById("cardGeneration");
 const cardBaseExperience = document.getElementById("cardBaseExperience");
 const basicTypes = document.getElementById("basicTypes");
 const basicShinyImage = document.getElementById("basicShinyImage");
+const evolutionSection = document.getElementById("evolutionSection");
+const evolutionTree = document.getElementById("evolutionTree");
 
 const movesList = document.getElementById("movesList");
 const movesStatus = document.getElementById("movesStatus");
@@ -54,6 +56,7 @@ let currentSpritePokemon = null;
 let currentSpecies = null;
 let activeSearchToken = 0;
 let spriteFormToken = 0;
+let evolutionToken = 0;
 
 let moveIndex = 0;
 const movesPerPage = 10;
@@ -611,6 +614,8 @@ function updateSpriteAvailability(){
 
     const variantButtons =
         spriteVariantButtons.querySelectorAll(".sprite-btn");
+    const sourceButtons =
+        spriteSourceButtons.querySelectorAll(".sprite-btn");
 
     genderButtons.forEach(function(button){
         let available = true;
@@ -646,6 +651,20 @@ function updateSpriteAvailability(){
         button.disabled = !available;
     });
 
+    sourceButtons.forEach(function(button){
+        let available = true;
+        if(button.dataset.value === "normal"){
+            available = Boolean(getNormalSprite(data, spriteState.gender, spriteState.variant));
+        }else if(button.dataset.value === "official"){
+            available = Boolean(getOfficialArtwork(data, spriteState.variant));
+        }else if(button.dataset.value === "officialShiny"){
+            available = Boolean(getOfficialArtwork(data, "shiny"));
+        }else if(button.dataset.value === "dream"){
+            available = Boolean(getDreamWorldSprite(data, spriteState.gender)) && spriteState.variant !== "shiny";
+        }
+        button.disabled = !available;
+    });
+
     const currentGender = spriteGenderButtons.querySelector( `[data-value="${spriteState.gender}"]`);
 
     if(currentGender?.disabled){
@@ -656,6 +675,11 @@ function updateSpriteAvailability(){
 
     if(currentVariant?.disabled){
         spriteState.variant = "default";
+    }
+
+    const currentSource = spriteSourceButtons.querySelector(`[data-value="${spriteState.source}"]`);
+    if(currentSource?.disabled){
+        spriteState.source = "normal";
     }
 
     updateSpriteButtons("gender");
@@ -792,15 +816,9 @@ function renderSprites(data,speciesData){
 
     createSpriteButton( spriteSourceButtons, "Standard Sprite", "normal", "source");
 
-    if( data.sprites.other?.["official-artwork"]?.front_default){
-        createSpriteButton( spriteSourceButtons, "Official Artwork", "official", "source");
-    }
-    if( data.sprites.other?.["official-artwork"]?.front_shiny){
-        createSpriteButton( spriteSourceButtons, "Official Shiny", "officialShiny", "source");
-    }
-    if( data.sprites.other?.dream_world?.front_default){
-        createSpriteButton( spriteSourceButtons, "Dream World", "dream", "source");
-    }
+    createSpriteButton(spriteSourceButtons, "Official Artwork", "official", "source");
+    createSpriteButton(spriteSourceButtons, "Official Shiny", "officialShiny", "source");
+    createSpriteButton(spriteSourceButtons, "Dream World", "dream", "source");
 
     updateSpriteAvailability();
     updateSpriteButtons("form");
@@ -834,12 +852,110 @@ function renderPokemon(pokemonData,speciesData){
 
     renderPokemonHeader(pokemonData);
     renderBasicInfo(pokemonData,speciesData);
+    renderEvolutionTree(speciesData);
     renderMoves(pokemonData);
     renderStats(pokemonData);
     renderSprites(pokemonData,speciesData);
 
     showTab("basic");
 }
+
+function collectEvolutionStages(node, depth, stages){
+    if(!stages[depth]) stages[depth] = [];
+    stages[depth].push(node.species);
+    (node.evolves_to || []).forEach(function(next){
+        collectEvolutionStages(next, depth + 1, stages);
+    });
+}
+
+async function renderEvolutionTree(speciesData){
+    const token = ++evolutionToken;
+    evolutionSection.hidden = true;
+    evolutionTree.replaceChildren();
+
+    const chainUrl = speciesData?.evolution_chain?.url;
+    if(!chainUrl) return;
+
+    try{
+        const response = await fetch(chainUrl);
+        if(!response.ok) throw new Error("Evolution data unavailable");
+        const chainData = await response.json();
+        const stages = [];
+        collectEvolutionStages(chainData.chain, 0, stages);
+        if(stages.flat().length < 2) return;
+
+        const pokemonStages = await Promise.all(stages.map(async function(stage){
+            return await Promise.all(stage.map(async function(species){
+                const match = species.url.match(/\/(\d+)\/?$/);
+                if(!match) return null;
+                try{
+                    const pokemon = await fetchPokemon(match[1]);
+                    return {species, pokemon};
+                }catch(error){
+                    return null;
+                }
+            }));
+        }));
+
+        if(token !== evolutionToken) return;
+        const visibleStages = pokemonStages.map(function(stage){
+            return stage.filter(Boolean);
+        }).filter(function(stage){ return stage.length > 0; });
+        if(visibleStages.flat().length < 2) return;
+
+        visibleStages.forEach(function(stage, index){
+            const stageElement = document.createElement("div");
+            stageElement.className = "evolution-stage" + (stage.length > 1 ? " branch-stage" : "");
+
+            stage.forEach(function(entry){
+                const button = document.createElement("button");
+                const image = document.createElement("img");
+                const name = document.createElement("strong");
+                const number = document.createElement("span");
+                const art = entry.pokemon.sprites.other?.["official-artwork"]?.front_default || entry.pokemon.sprites.front_default;
+
+                button.type = "button";
+                button.className = "evolution-card";
+                button.dataset.searchId = String(entry.pokemon.id);
+                button.title = "View " + formatName(entry.species.name);
+                if(entry.pokemon.id === currentPokemon?.id){
+                    button.classList.add("current-evolution");
+                    button.setAttribute("aria-current", "true");
+                }
+
+                if(art){
+                    image.src = art;
+                    image.alt = "";
+                    image.loading = "lazy";
+                    button.appendChild(image);
+                }
+                name.textContent = formatName(entry.species.name);
+                number.textContent = "#" + String(entry.pokemon.id).padStart(3, "0");
+                button.append(name, number);
+                button.addEventListener("click", function(){
+                    pokemonInput.value = formatName(entry.species.name);
+                    searchPokemon(String(entry.pokemon.id), true);
+                });
+                stageElement.appendChild(button);
+            });
+
+            evolutionTree.appendChild(stageElement);
+            if(index < visibleStages.length - 1){
+                const connector = document.createElement("span");
+                connector.className = "evolution-connector";
+                connector.setAttribute("aria-hidden", "true");
+                connector.textContent = "→";
+                evolutionTree.appendChild(connector);
+            }
+        });
+        evolutionSection.hidden = false;
+    }catch(error){
+        if(token === evolutionToken){
+            evolutionSection.hidden = true;
+        }
+    }
+}
+
 // Search
 async function searchPokemon(name, updateSearchField = false){
     const query = normalizePokemonQuery(name);
@@ -853,6 +969,7 @@ async function searchPokemon(name, updateSearchField = false){
     }
 
     const searchToken = ++activeSearchToken;
+    evolutionToken++;
     const lookup = String(pokemonNameIds[query] || query);
     searchBtn.disabled = true;
     searchBtnLabel.textContent = "Searching...";
