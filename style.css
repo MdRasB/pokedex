@@ -52,22 +52,26 @@ body::before {
 }
 
 .ambient-pokemon { position: fixed; z-index: 0; inset: calc(37vh + 17px) 0 0; overflow: hidden; pointer-events: none; }
-.ambient-pokemon img { position: absolute; width: clamp(150px, 14vw, 190px); max-height: 205px; height: auto; object-fit: contain; opacity: 1; filter: saturate(1.12) drop-shadow(0 15px 16px rgba(48, 39, 96, .18)); animation: float-pokemon 6s ease-in-out infinite; }
-/* Two tidy rows keep every cutout inside the viewport with room between figures. */
+.ambient-pokemon img { position: absolute; width: clamp(170px, 15vw, 200px); max-height: 220px; height: auto; object-fit: contain; opacity: 1; filter: saturate(1.12) drop-shadow(0 15px 16px rgba(48, 39, 96, .18)); animation: float-pokemon 6s ease-in-out infinite; }
+/* A close, staggered collage fills the lower field while retaining clear silhouettes. */
 .ambient-pokemon img:nth-child(1) { top: 0; left: 0; width: clamp(145px, 17vw, 225px); max-height: 265px; animation-delay: -1s; }
 .ambient-pokemon img:nth-child(2) { top: 0; right: 0; width: clamp(145px, 19vw, 250px); max-height: 265px; animation-delay: -3s; }
-.ambient-pokemon img:nth-child(3) { bottom: 0; left: 0; width: clamp(145px, 13vw, 170px); animation-delay: -2s; }
-.ambient-pokemon img:nth-child(4) { bottom: 0; left: 14.3%; width: clamp(150px, 14vw, 180px); animation-delay: -4s; }
-.ambient-pokemon img:nth-child(5) { bottom: 0; left: 28.6%; width: clamp(155px, 14vw, 185px); animation-delay: -5s; }
-.ambient-pokemon img:nth-child(6) { bottom: 0; left: 42.9%; width: clamp(130px, 12vw, 155px); animation-delay: -2.8s; }
-.ambient-pokemon img:nth-child(7) { bottom: 0; left: 57.1%; width: clamp(125px, 11vw, 150px); animation-delay: -1.7s; }
-.ambient-pokemon img:nth-child(8) { top: 0; left: 14.3%; animation-delay: -2.3s; }
-.ambient-pokemon img:nth-child(9) { top: 0; left: 28.6%; animation-delay: -4.1s; }
-.ambient-pokemon img:nth-child(10) { top: 0; left: 42.9%; animation-delay: -3.2s; }
-.ambient-pokemon img:nth-child(11) { top: 0; left: 57.1%; animation-delay: -1.4s; }
-.ambient-pokemon img:nth-child(12) { top: 0; left: 71.4%; animation-delay: -4.5s; }
-.ambient-pokemon img:nth-child(13) { bottom: 0; left: 71.4%; animation-delay: -2.7s; }
-.ambient-pokemon img:nth-child(14) { bottom: 0; right: 0; animation-delay: -3.7s; }
+.ambient-pokemon img:nth-child(3) { top: 32vh; left: 10%; width: clamp(145px, 13vw, 170px); animation-delay: -2s; }
+.ambient-pokemon img:nth-child(4) { top: 17vh; left: 10%; width: clamp(150px, 14vw, 180px); animation-delay: -4s; }
+.ambient-pokemon img:nth-child(5) { top: 17vh; left: 30%; width: clamp(155px, 14vw, 185px); animation-delay: -5s; }
+.ambient-pokemon img:nth-child(6) { top: 17vh; left: 50%; width: clamp(130px, 12vw, 155px); animation-delay: -2.8s; }
+.ambient-pokemon img:nth-child(7) { top: 17vh; left: 70%; width: clamp(125px, 11vw, 150px); animation-delay: -1.7s; }
+.ambient-pokemon img:nth-child(8) { top: 0; left: 20%; animation-delay: -2.3s; }
+.ambient-pokemon img:nth-child(9) { top: 0; left: 40%; animation-delay: -4.1s; }
+.ambient-pokemon img:nth-child(10) { top: 0; left: 60%; animation-delay: -3.2s; }
+.ambient-pokemon img:nth-child(11) { top: 17vh; right: 0; animation-delay: -1.4s; }
+.ambient-pokemon img:nth-child(12) { top: 32vh; left: 32%; animation-delay: -4.5s; }
+.ambient-pokemon img:nth-child(13) { top: 32vh; left: 55%; animation-delay: -2.7s; }
+.ambient-pokemon img:nth-child(14) { top: 32vh; right: 10%; animation-delay: -3.7s; }
+/* Stack each higher sprite row above the figures behind it. */
+.ambient-pokemon img:nth-child(1), .ambient-pokemon img:nth-child(2), .ambient-pokemon img:nth-child(8), .ambient-pokemon img:nth-child(9), .ambient-pokemon img:nth-child(10) { z-index: 3; }
+.ambient-pokemon img:nth-child(4), .ambient-pokemon img:nth-child(5), .ambient-pokemon img:nth-child(6), .ambient-pokemon img:nth-child(11) { z-index: 2; }
+.ambient-pokemon img:nth-child(3), .ambient-pokemon img:nth-child(7), .ambient-pokemon img:nth-child(12), .ambient-pokemon img:nth-child(13), .ambient-pokemon img:nth-child(14) { z-index: 1; }
 @keyframes float-pokemon { 0%, 100% { translate: 0 0; } 50% { translate: 0 -17px; } }
 
 body::after {
@@ -218,7 +222,7 @@ img { display: block; max-width: 100%; }
 .tab-btn { display: flex; flex: 1; align-items: center; justify-content: center; min-width: 112px; padding: 11px 15px; border: 0; border-radius: 999px; color: #71728d; background: transparent; font-size: 11px; font-weight: 700; transition: transform .18s, color .18s, background .18s, box-shadow .18s; }
 .tab-btn:hover { transform: translateY(-1px); color: var(--violet-dark); background: #efedff; }
 .tab-btn.active { color: white; background: linear-gradient(105deg, #6257e8, #8b54dd); box-shadow: 0 4px 11px rgba(86,74,195,.2); }
-.tab-content { background: linear-gradient(135deg, rgba(255,248,233,.78), rgba(245,237,255,.78) 48%, rgba(234,250,255,.8)); backdrop-filter: blur(20px) saturate(1.1); }
+.tab-content { background: linear-gradient(135deg, rgba(255,248,233,.65), rgba(245,237,255,.65) 48%, rgba(234,250,255,.68)); backdrop-filter: blur(10px) saturate(1.1); }
 .tab-panel { min-height: 230px; padding: clamp(24px, 3vw, 40px) clamp(24px, 5vw, 66px) 38px; }
 .section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 21px; }
 .section-heading h3 { margin: 0; color: #272743; font: 800 clamp(23px, 2.8vw, 32px)/1.1 var(--display); letter-spacing: -.055em; }
@@ -344,7 +348,7 @@ img { display: block; max-width: 100%; }
     :root { --rail-inset: 0px; }
     body { padding: 0 17px; }
     .page { width: min(100%, 720px); }
-    .ambient-pokemon img { max-height: 155px; }
+    .ambient-pokemon img { max-height: 150px; }
     .ambient-pokemon img:nth-child(-n+7) { width: clamp(112px, 18vw, 170px); }
     .ambient-pokemon img:nth-child(1), .ambient-pokemon img:nth-child(2) { max-height: 180px; }
     .ambient-pokemon img:nth-child(n+8) { width: clamp(112px, 17vw, 155px); }
@@ -366,8 +370,8 @@ img { display: block; max-width: 100%; }
 }
 
 @media (min-width: 801px) and (max-width: 1000px) {
-    .ambient-pokemon img { width: clamp(90px, 13vw, 128px); max-height: 155px; }
-    .ambient-pokemon img:nth-child(1), .ambient-pokemon img:nth-child(2) { width: clamp(105px, 15vw, 145px); max-height: 180px; }
+    .ambient-pokemon img { width: clamp(130px, 15vw, 155px); max-height: 175px; }
+    .ambient-pokemon img:nth-child(1), .ambient-pokemon img:nth-child(2) { width: clamp(140px, 17vw, 175px); max-height: 200px; }
 }
 
 @media (max-width: 560px) {
