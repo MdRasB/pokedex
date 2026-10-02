@@ -1,20 +1,7 @@
 // API
 const PokeAPI = "https://pokeapi.co/api/v2/pokemon";
-const pokemonCount = 1025;
-const quickSearchPool = [
-    ["pikachu", 25, "electric"], ["arcanine", 59, "fire"], ["bulbasaur", 1, "grass"], ["charizard", 6, "fire"],
-    ["blastoise", 9, "water"], ["gengar", 94, "ghost"], ["dragonite", 149, "dragon"], ["mewtwo", 150, "psychic"],
-    ["umbreon", 197, "dark"], ["espeon", 196, "psychic"], ["tyranitar", 248, "rock"], ["lucario", 448, "fighting"],
-    ["greninja", 658, "water"], ["sylveon", 700, "fairy"], ["gardevoir", 282, "psychic"], ["metagross", 376, "steel"],
-    ["rayquaza", 384, "dragon"], ["kyogre", 382, "water"], ["groudon", 383, "ground"], ["garchomp", 445, "dragon"],
-    ["reshiram", 643, "dragon"], ["zekrom", 644, "dragon"], ["decidueye", 724, "grass"], ["lycanroc", 745, "rock"],
-    ["corviknight", 823, "flying"], ["dragapult", 887, "dragon"], ["ceruledge", 937, "fire"], ["iron-valiant", 1006, "fairy"],
-    ["koraidon", 1007, "fighting"], ["miraidon", 1008, "electric"], ["wooper", 194, "water"], ["spheal", 363, "ice"],
-    ["psyduck", 54, "water"], ["snorlax", 143, "normal"], ["ditto", 132, "normal"], ["jigglypuff", 39, "normal"],
-    ["scizor", 212, "bug"], ["ampharos", 181, "electric"], ["milotic", 350, "water"], ["absol", 359, "dark"],
-    ["zoroark", 571, "dark"], ["mimikyu", 778, "ghost"], ["rockruff", 744, "rock"], ["sprigatito", 906, "grass"],
-    ["fuecoco", 909, "fire"], ["quaxly", 912, "water"], ["pawmi", 921, "electric"], ["tinkaton", 957, "fairy"]
-].map(function([name, id, type]){ return {name, id, type}; });
+const pokemonCount = 1026;
+const pokemonNameIds = { mimikyu: 778, lycanroc: 745 };
 
 // DOM Elements
 const searchForm = document.getElementById("searchForm");
@@ -111,29 +98,58 @@ function normalizePokemonQuery(value){
         .replace(/^-|-$/g, "");
 }
 
-function shuffle(items){
-    const result = items.slice();
-    for(let i = result.length - 1; i > 0; i--){
-        const j = Math.floor(Math.random() * (i + 1));
-        [result[i], result[j]] = [result[j], result[i]];
+function randomDexIds(count, excludedIds = []){
+    const excluded = new Set(excludedIds.map(Number));
+    const picks = [];
+    const range = 0x100000000;
+    const cutoff = range - (range % pokemonCount);
+
+    while(picks.length < count){
+        let offset;
+        if(globalThis.crypto?.getRandomValues){
+            const randomValue = new Uint32Array(1);
+            do{
+                globalThis.crypto.getRandomValues(randomValue);
+            }while(randomValue[0] >= cutoff);
+            offset = randomValue[0] % pokemonCount;
+        }else{
+            offset = Math.floor(Math.random() * pokemonCount);
+        }
+        const id = offset + 1;
+        if(!excluded.has(id)){
+            excluded.add(id);
+            picks.push(id);
+        }
     }
-    return result;
+
+    return picks;
 }
 
-function populateRandomPicks(){
-    const picks = shuffle(quickSearchPool).slice(0, chipButtons.length);
+async function populateRandomPicks(excludedIds = []){
+    const picks = randomDexIds(chipButtons.length, excludedIds);
 
-    chipButtons.forEach(function(button, index){
-        const pick = picks[index];
-        const name = pick.name;
+    await Promise.all(Array.from(chipButtons).map(async function(button, index){
+        const id = picks[index];
         const arrow = document.createElement("span");
         arrow.setAttribute("aria-hidden", "true");
         arrow.textContent = "↗";
-        button.dataset.name = name;
-        button.dataset.searchId = String(pick.id);
-        button.dataset.type = pick.type;
-        button.replaceChildren(document.createTextNode(formatName(name) + " "), arrow);
-    });
+        button.dataset.name = "";
+        button.dataset.searchId = String(id);
+        button.dataset.type = "unknown";
+        button.title = "Random Pokédex entry #" + id;
+        button.replaceChildren(document.createTextNode("Pokémon #" + id + " "), arrow);
+
+        try{
+            const data = await fetchPokemon(String(id));
+            const name = data.species?.name || data.name;
+            button.dataset.name = name;
+            button.dataset.type = data.types?.[0]?.type?.name || "unknown";
+            button.title = "Search " + formatName(name) + " (Pokédex #" + id + ")";
+            button.replaceChildren(document.createTextNode(formatName(name) + " "), arrow);
+        }catch(error){
+            button.dataset.name = "Pokémon #" + id;
+        }
+    }));
 }
 
 
@@ -209,7 +225,7 @@ function renderPokemonHeader(data){
     pokemonCard.hidden = false;
 
     cardId.textContent = "#" + String(data.id).padStart(3,"0");
-    cardName.textContent = formatName(data.name);
+    cardName.textContent = formatName(data.species?.name || data.name);
 
     renderTypes(cardTypes,data.types);
 
@@ -825,7 +841,7 @@ function renderPokemon(pokemonData,speciesData){
     showTab("basic");
 }
 // Search
-async function searchPokemon(name){
+async function searchPokemon(name, updateSearchField = false){
     const query = normalizePokemonQuery(name);
 
     if(query === ""){
@@ -837,12 +853,13 @@ async function searchPokemon(name){
     }
 
     const searchToken = ++activeSearchToken;
+    const lookup = String(pokemonNameIds[query] || query);
     searchBtn.disabled = true;
     searchBtnLabel.textContent = "Searching...";
     showLoading();
 
     try{
-        const pokemonData = await fetchPokemon(query);
+        const pokemonData = await fetchPokemon(lookup);
         let speciesData = null;
 
         try{
@@ -852,6 +869,9 @@ async function searchPokemon(name){
         }
 
         if(searchToken !== activeSearchToken) return;
+        if(updateSearchField){
+            pokemonInput.value = formatName(pokemonData.species?.name || pokemonData.name);
+        }
         renderPokemon( pokemonData, speciesData);
         hideStatus();
 
@@ -888,13 +908,14 @@ chipButtons.forEach(function(button){
 
         pokemonInput.value = name;
 
-        searchPokemon(searchId || name);
+        searchPokemon(searchId || name, true);
     });
 });
 
 pokemonCard.hidden = true;
 showStatus( "Search for a Pokemon to see its information.", false);
 
-// Start with a different Pokédex entry and set of type-colored picks on each visit.
-populateRandomPicks();
-searchPokemon(String(1 + Math.floor(Math.random() * pokemonCount)));
+// Pick one random entry for the page and keep it out of the five random quick picks.
+const initialPokemonId = randomDexIds(1)[0];
+populateRandomPicks([initialPokemonId]);
+searchPokemon(String(initialPokemonId), true);
