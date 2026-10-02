@@ -10,8 +10,8 @@ const searchBtn = document.getElementById("searchBtn");
 const searchBtnLabel = document.getElementById("searchBtnLabel");
 const chipButtons = document.querySelectorAll(".chip-btn");
 const ambientPokemon = document.querySelector(".ambient-pokemon");
-const ambientSpriteCount = 48;
-const ambientTypeCache = new Map();
+const ambientSpriteCount = 40;
+const ambientGenerationCache = new Map();
 
 const statusMsg = document.getElementById("statusMsg");
 const loadingState = document.getElementById("loadingState");
@@ -28,6 +28,7 @@ const cardHeight = document.getElementById("cardHeight");
 const cardWeight = document.getElementById("cardWeight");
 const cardGeneration = document.getElementById("cardGeneration");
 const cardBaseExperience = document.getElementById("cardBaseExperience");
+const cardRegion = document.getElementById("cardRegion");
 const basicTypes = document.getElementById("basicTypes");
 const basicShinyImage = document.getElementById("basicShinyImage");
 const evolutionSection = document.getElementById("evolutionSection");
@@ -60,7 +61,7 @@ let currentSpecies = null;
 let activeSearchToken = 0;
 let spriteFormToken = 0;
 let evolutionToken = 0;
-let ambientTypeToken = 0;
+let ambientGenerationToken = 0;
 let ambientSelectedIds = [];
 
 let moveIndex = 0;
@@ -146,23 +147,61 @@ function initializeAmbientPokemon(){
 }
 
 function layoutAmbientPokemon(){
-    const columns = [1.2, 13.5, 25.8, 38.1, 50.4, 62.7, 75, 87.3];
-    const staggeredColumns = [7.35, 19.65, 31.95, 44.25, 56.55, 68.85, 81.15, null];
-    const rowSpacing = window.innerWidth <= 800 ? 13 : window.innerWidth <= 1000 ? 9.5 : 8.5;
+    const images = Array.from(ambientPokemon.querySelectorAll("img"));
+    const halfWidth = ambientPokemon.clientWidth / 2;
+    const areaHeight = ambientPokemon.clientHeight;
+    const visibleCount = window.matchMedia("(max-width: 560px)").matches ? 2
+        : window.matchMedia("(max-width: 1000px)").matches ? 32
+        : images.length;
+    const visiblePerSide = Math.ceil(visibleCount / 2);
+    const placed = [[], []];
 
-    ambientPokemon.querySelectorAll("img").forEach(function(image, index){
-        const row = Math.floor(index / 8);
-        const column = index % 8;
-        const left = row % 2 === 0 ? columns[column] : staggeredColumns[column];
+    images.forEach(function(image, index){
+        const side = index % 2;
+        const width = image.getBoundingClientRect().width || 160;
+        const height = Math.min(image.getBoundingClientRect().height || 150, 170);
+        const minX = side === 0 ? 0 : halfWidth;
+        const maxX = Math.max(minX, (side === 0 ? halfWidth : ambientPokemon.clientWidth) - width);
+        const maxY = Math.max(0, areaHeight - height);
+        const sideIndex = Math.floor(index / 2);
+        let point;
 
-        image.dataset.row = String(row);
-        image.style.top = (row * rowSpacing + Math.random() * 1.2) + "vh";
-        image.style.zIndex = String(6 - row);
-        image.style.right = left === null ? "0" : "auto";
-        image.style.left = left === null ? "auto" : left + "%";
+        if(index >= visibleCount){
+            image.hidden = true;
+            return;
+        }
+
+        image.hidden = false;
+        // Anchor one sprite at each outer edge, then scatter the rest across
+        // the whole side with a minimum distance to keep their artwork legible.
+        if(sideIndex === 0){
+            point = { x: side === 0 ? 0 : maxX, y: Math.random() * maxY };
+        }else{
+            const minDistance = Math.max(92, width * .62);
+            for(let attempt = 0; attempt < 500; attempt++){
+                const candidate = {
+                    x: minX + Math.random() * Math.max(0, maxX - minX),
+                    y: Math.random() * maxY
+                };
+                if(placed[side].every(function(other){
+                    return Math.hypot(candidate.x - other.x, candidate.y - other.y) >= minDistance;
+                })){
+                    point = candidate;
+                    break;
+                }
+            }
+            if(!point) point = { x: minX + Math.random() * Math.max(0, maxX - minX), y: Math.random() * maxY };
+        }
+
+        placed[side].push(point);
+        image.dataset.row = "scatter";
+        image.style.top = point.y + "px";
+        image.style.zIndex = String(1 + Math.floor(Math.random() * 6));
+        image.style.right = "auto";
+        image.style.left = point.x + "px";
         if(!image.dataset.scale){
-            const scale = .86 + Math.random() * .24;
-            const tilt = -6 + Math.random() * 12;
+            const scale = .9 + Math.random() * .14;
+            const tilt = -3 + Math.random() * 6;
             image.dataset.scale = scale.toFixed(2);
             image.style.transform = "rotate(" + tilt.toFixed(1) + "deg) scale(" + image.dataset.scale + ")";
         }
@@ -178,33 +217,32 @@ function shuffleItems(items){
     return shuffled;
 }
 
-async function updateAmbientPokemon(primaryType){
-    const token = ++ambientTypeToken;
-    if(!primaryType || ambientPokemon.dataset.type === primaryType) return;
+async function updateAmbientPokemon(generationName){
+    const token = ++ambientGenerationToken;
+    if(!generationName || ambientPokemon.dataset.generation === generationName) return;
 
     try{
-        let speciesIds = ambientTypeCache.get(primaryType);
+        let speciesIds = ambientGenerationCache.get(generationName);
         if(!speciesIds){
-            const response = await fetch("https://pokeapi.co/api/v2/type/" + encodeURIComponent(primaryType));
-            if(!response.ok) throw new Error("Type sprites unavailable");
-            const typeData = await response.json();
-            const ids = typeData.pokemon
-                .filter(function(entry){ return entry.slot === 1; })
-                .map(function(entry){
-                    const match = entry.pokemon.url.match(/\/pokemon\/(\d+)\/?$/);
+            const response = await fetch("https://pokeapi.co/api/v2/generation/" + encodeURIComponent(generationName));
+            if(!response.ok) throw new Error("Generation sprites unavailable");
+            const generationData = await response.json();
+            const ids = generationData.pokemon_species
+                .map(function(species){
+                    const match = species.url.match(/\/pokemon-species\/(\d+)\/?$/);
                     return match ? Number(match[1]) : null;
                 })
                 .filter(function(id){ return Number.isInteger(id); });
             speciesIds = Array.from(new Set(ids));
-            ambientTypeCache.set(primaryType, speciesIds);
+            ambientGenerationCache.set(generationName, speciesIds);
         }
 
-        if(token !== ambientTypeToken || speciesIds.length === 0) return;
+        if(token !== ambientGenerationToken || speciesIds.length === 0) return;
         ambientSelectedIds = shuffleItems(speciesIds).slice(0, ambientSpriteCount);
         renderAmbientPokemonSprites();
-        ambientPokemon.dataset.type = primaryType;
+        ambientPokemon.dataset.generation = generationName;
     }catch(error){
-        // Keep the current collage if the type endpoint is temporarily unavailable.
+        // Keep the current collage if the generation endpoint is temporarily unavailable.
     }
 }
 
@@ -213,8 +251,7 @@ function renderAmbientPokemonSprites(){
     const images = ambientPokemon.querySelectorAll("img");
     const visibleCount = window.matchMedia("(max-width: 560px)").matches
         ? 2
-        : window.matchMedia("(max-width: 800px)").matches ? 32
-        : window.matchMedia("(max-width: 1000px)").matches ? 40
+        : window.matchMedia("(max-width: 1000px)").matches ? 32
         : ambientSpriteCount;
 
     images.forEach(function(image, index){
@@ -357,7 +394,21 @@ function renderBasicInfo(data,speciesData){
     cardWeight.textContent = (data.weight / 10).toFixed(1) + " kg";
     cardBaseExperience.textContent = data.base_experience !== null ? data.base_experience : "N/A";
 
-    cardGeneration.textContent = speciesData?.generation ? formatName(speciesData.generation.name) : "Unknown";
+    const generationName = speciesData?.generation?.name;
+    const generationRoman = generationName?.split("-").pop().toUpperCase();
+    const generationRegions = {
+        "generation-i": "Kanto",
+        "generation-ii": "Johto",
+        "generation-iii": "Hoenn",
+        "generation-iv": "Sinnoh",
+        "generation-v": "Unova",
+        "generation-vi": "Kalos",
+        "generation-vii": "Alola",
+        "generation-viii": "Galar",
+        "generation-ix": "Paldea"
+    };
+    cardGeneration.textContent = generationRoman ? "Generation " + generationRoman : "Unknown";
+    cardRegion.textContent = generationRegions[generationName] || "Unknown";
 
     renderTypes(basicTypes,data.types);
     const shinyImage = data.sprites.other?.["official-artwork"]?.front_shiny || data.sprites.front_shiny;
@@ -1088,7 +1139,6 @@ async function searchPokemon(name, updateSearchField = false){
     try{
         const pokemonData = await fetchPokemon(lookup);
         if(searchToken !== activeSearchToken) return;
-        updateAmbientPokemon(pokemonData.types?.[0]?.type?.name);
 
         let speciesData = null;
 
@@ -1099,6 +1149,7 @@ async function searchPokemon(name, updateSearchField = false){
         }
 
         if(searchToken !== activeSearchToken) return;
+        updateAmbientPokemon(speciesData?.generation?.name);
         if(updateSearchField){
             pokemonInput.value = formatName(pokemonData.species?.name || pokemonData.name);
         }
