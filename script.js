@@ -1,11 +1,17 @@
 // API
 const PokeAPI = "https://pokeapi.co/api/v2/pokemon";
+const pokemonCount = 1026;
+const pokemonNameIds = { mimikyu: 778, lycanroc: 745 };
 
 // DOM Elements
 const searchForm = document.getElementById("searchForm");
 const pokemonInput = document.getElementById("pokemonInput");
 const searchBtn = document.getElementById("searchBtn");
+const searchBtnLabel = document.getElementById("searchBtnLabel");
 const chipButtons = document.querySelectorAll(".chip-btn");
+const ambientPokemon = document.querySelector(".ambient-pokemon");
+const ambientSpriteCount = 40;
+const ambientGenerationCache = new Map();
 
 const statusMsg = document.getElementById("statusMsg");
 const loadingState = document.getElementById("loadingState");
@@ -13,9 +19,7 @@ const errorState = document.getElementById("errorState");
 const errorMessage = document.getElementById("errorMessage");
 
 const pokemonCard = document.getElementById("pokemonCard");
-const cardEyebrow = document.getElementById("cardEyebrow");
 const cardId = document.getElementById("cardId");
-const cardTypeLabel = document.getElementById("cardTypeLabel");
 const cardName = document.getElementById("cardName");
 const cardTypes = document.getElementById("cardTypes");
 const cardImage = document.getElementById("cardImage");
@@ -24,8 +28,11 @@ const cardHeight = document.getElementById("cardHeight");
 const cardWeight = document.getElementById("cardWeight");
 const cardGeneration = document.getElementById("cardGeneration");
 const cardBaseExperience = document.getElementById("cardBaseExperience");
+const cardRegion = document.getElementById("cardRegion");
 const basicTypes = document.getElementById("basicTypes");
 const basicShinyImage = document.getElementById("basicShinyImage");
+const evolutionSection = document.getElementById("evolutionSection");
+const evolutionTree = document.getElementById("evolutionTree");
 
 const movesList = document.getElementById("movesList");
 const movesStatus = document.getElementById("movesStatus");
@@ -39,6 +46,8 @@ const tabPanels = document.querySelectorAll(".tab-panel");
 
 const spriteGenderButtons = document.getElementById("spriteGenderButtons");
 const spriteVariantButtons = document.getElementById("spriteVariantButtons");
+const spriteFormGroup = document.getElementById("spriteFormGroup");
+const spriteFormButtons = document.getElementById("spriteFormButtons");
 const spriteSourceButtons = document.getElementById("spriteSourceButtons");
 
 const selectedSpriteImage = document.getElementById("selectedSpriteImage");
@@ -47,7 +56,13 @@ const selectedSpriteLabel = document.getElementById("selectedSpriteLabel");
 
 // App state
 let currentPokemon = null;
+let currentSpritePokemon = null;
 let currentSpecies = null;
+let activeSearchToken = 0;
+let spriteFormToken = 0;
+let evolutionToken = 0;
+let ambientGenerationToken = 0;
+let ambientSelectedIds = [];
 
 let moveIndex = 0;
 const movesPerPage = 10;
@@ -56,6 +71,7 @@ let moveLoadToken = 0;
 let spriteState = {
     gender: "male",
     variant: "default",
+    form: "",
     source: "normal"
 };
 
@@ -72,6 +88,218 @@ function formatName(text){
         words[i] = words[i].charAt(0).toUpperCase() + words[i].slice(1);
     }
     return words.join(" ");
+}
+
+function normalizePokemonQuery(value){
+    const input = String(value).trim().toLowerCase();
+    if(!input){
+        return "";
+    }
+
+    if(input === "nidoran♀" || input === "nidoran female") return "nidoran-f";
+    if(input === "nidoran♂" || input === "nidoran male") return "nidoran-m";
+
+    return input.normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[.'’]/g, "")
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/-{2,}/g, "-")
+        .replace(/^-|-$/g, "");
+}
+
+function randomDexIds(count, excludedIds = []){
+    const excluded = new Set(excludedIds.map(Number));
+    const picks = [];
+    const range = 0x100000000;
+    const cutoff = range - (range % pokemonCount);
+
+    while(picks.length < count){
+        let offset;
+        if(globalThis.crypto?.getRandomValues){
+            const randomValue = new Uint32Array(1);
+            do{
+                globalThis.crypto.getRandomValues(randomValue);
+            }while(randomValue[0] >= cutoff);
+            offset = randomValue[0] % pokemonCount;
+        }else{
+            offset = Math.floor(Math.random() * pokemonCount);
+        }
+        const id = offset + 1;
+        if(!excluded.has(id)){
+            excluded.add(id);
+            picks.push(id);
+        }
+    }
+
+    return picks;
+}
+
+function initializeAmbientPokemon(){
+    for(let index = 0; index < ambientSpriteCount; index++){
+        const image = document.createElement("img");
+        image.alt = "";
+        image.decoding = "async";
+        image.fetchPriority = "low";
+        ambientPokemon.appendChild(image);
+    }
+
+    layoutAmbientPokemon();
+}
+
+function layoutAmbientPokemon(){
+    const images = Array.from(ambientPokemon.querySelectorAll("img"));
+    const halfWidth = ambientPokemon.clientWidth / 2;
+    const areaHeight = ambientPokemon.clientHeight;
+    const visibleCount = window.matchMedia("(max-width: 560px)").matches ? 2
+        : window.matchMedia("(max-width: 1000px)").matches ? 32
+        : images.length;
+    const visiblePerSide = Math.ceil(visibleCount / 2);
+    const placed = [[], []];
+
+    images.forEach(function(image, index){
+        const side = index % 2;
+        const width = image.getBoundingClientRect().width || 160;
+        const height = Math.min(image.getBoundingClientRect().height || 150, 170);
+        const minX = side === 0 ? 0 : halfWidth;
+        const maxX = Math.max(minX, (side === 0 ? halfWidth : ambientPokemon.clientWidth) - width);
+        const maxY = Math.max(0, areaHeight - height);
+        const sideIndex = Math.floor(index / 2);
+        let point;
+
+        if(index >= visibleCount){
+            image.hidden = true;
+            return;
+        }
+
+        image.hidden = false;
+        // Anchor one sprite at each outer edge, then scatter the rest across
+        // the whole side with a minimum distance to keep their artwork legible.
+        if(sideIndex === 0){
+            point = { x: side === 0 ? 0 : maxX, y: Math.random() * maxY };
+        }else{
+            const minDistance = Math.max(92, width * .62);
+            for(let attempt = 0; attempt < 500; attempt++){
+                const candidate = {
+                    x: minX + Math.random() * Math.max(0, maxX - minX),
+                    y: Math.random() * maxY
+                };
+                if(placed[side].every(function(other){
+                    return Math.hypot(candidate.x - other.x, candidate.y - other.y) >= minDistance;
+                })){
+                    point = candidate;
+                    break;
+                }
+            }
+            if(!point) point = { x: minX + Math.random() * Math.max(0, maxX - minX), y: Math.random() * maxY };
+        }
+
+        placed[side].push(point);
+        image.dataset.row = "scatter";
+        image.style.top = point.y + "px";
+        image.style.zIndex = String(1 + Math.floor(Math.random() * 6));
+        image.style.right = "auto";
+        image.style.left = point.x + "px";
+        if(!image.dataset.scale){
+            const scale = .9 + Math.random() * .14;
+            const tilt = -3 + Math.random() * 6;
+            image.dataset.scale = scale.toFixed(2);
+            image.style.transform = "rotate(" + tilt.toFixed(1) + "deg) scale(" + image.dataset.scale + ")";
+        }
+    });
+}
+
+function shuffleItems(items){
+    const shuffled = items.slice();
+    for(let index = shuffled.length - 1; index > 0; index--){
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+    }
+    return shuffled;
+}
+
+async function updateAmbientPokemon(generationName){
+    const token = ++ambientGenerationToken;
+    if(!generationName || ambientPokemon.dataset.generation === generationName) return;
+
+    try{
+        let speciesIds = ambientGenerationCache.get(generationName);
+        if(!speciesIds){
+            const response = await fetch("https://pokeapi.co/api/v2/generation/" + encodeURIComponent(generationName));
+            if(!response.ok) throw new Error("Generation sprites unavailable");
+            const generationData = await response.json();
+            const ids = generationData.pokemon_species
+                .map(function(species){
+                    const match = species.url.match(/\/pokemon-species\/(\d+)\/?$/);
+                    return match ? Number(match[1]) : null;
+                })
+                .filter(function(id){ return Number.isInteger(id); });
+            speciesIds = Array.from(new Set(ids));
+            ambientGenerationCache.set(generationName, speciesIds);
+        }
+
+        if(token !== ambientGenerationToken || speciesIds.length === 0) return;
+        ambientSelectedIds = shuffleItems(speciesIds).slice(0, ambientSpriteCount);
+        renderAmbientPokemonSprites();
+        ambientPokemon.dataset.generation = generationName;
+    }catch(error){
+        // Keep the current collage if the generation endpoint is temporarily unavailable.
+    }
+}
+
+function renderAmbientPokemonSprites(){
+    if(ambientSelectedIds.length === 0) return;
+    const images = ambientPokemon.querySelectorAll("img");
+    const visibleCount = window.matchMedia("(max-width: 560px)").matches
+        ? 2
+        : window.matchMedia("(max-width: 1000px)").matches ? 32
+        : ambientSpriteCount;
+
+    images.forEach(function(image, index){
+        if(index >= visibleCount || index >= ambientSelectedIds.length){
+            image.removeAttribute("src");
+            image.hidden = true;
+            return;
+        }
+        image.hidden = false;
+        const pokemonId = ambientSelectedIds[index % ambientSelectedIds.length];
+        image.src = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/" + pokemonId + ".png";
+    });
+}
+
+let ambientResizeTimer;
+window.addEventListener("resize", function(){
+    clearTimeout(ambientResizeTimer);
+    ambientResizeTimer = setTimeout(function(){
+        layoutAmbientPokemon();
+        renderAmbientPokemonSprites();
+    }, 120);
+});
+
+async function populateRandomPicks(excludedIds = []){
+    const picks = randomDexIds(chipButtons.length, excludedIds);
+
+    await Promise.all(Array.from(chipButtons).map(async function(button, index){
+        const id = picks[index];
+        const arrow = document.createElement("span");
+        arrow.setAttribute("aria-hidden", "true");
+        arrow.textContent = "↗";
+        button.dataset.name = "";
+        button.dataset.searchId = String(id);
+        button.dataset.type = "unknown";
+        button.title = "Random Pokédex entry #" + id;
+        button.replaceChildren(document.createTextNode("Pokémon #" + id + " "), arrow);
+
+        try{
+            const data = await fetchPokemon(String(id));
+            const name = data.species?.name || data.name;
+            button.dataset.name = name;
+            button.dataset.type = data.types?.[0]?.type?.name || "unknown";
+            button.title = "Search " + formatName(name) + " (Pokédex #" + id + ")";
+            button.replaceChildren(document.createTextNode(formatName(name) + " "), arrow);
+        }catch(error){
+            button.dataset.name = "Pokémon #" + id;
+        }
+    }));
 }
 
 
@@ -146,16 +374,9 @@ function renderPokemonHeader(data){
     pokemonCard.dataset.type = primaryType;
     pokemonCard.hidden = false;
 
-    cardEyebrow.textContent = formatName(primaryType) + " Type - Pokedex Entry";
     cardId.textContent = "#" + String(data.id).padStart(3,"0");
-    cardName.textContent = formatName(data.name);
+    cardName.textContent = formatName(data.species?.name || data.name);
 
-    const typeNames = [];
-    for(let i = 0; i < data.types.length; i++){
-        typeNames.push( formatName(data.types[i].type.name));
-    }
-
-    cardTypeLabel.textContent = typeNames.join(" / ") + " Type";
     renderTypes(cardTypes,data.types);
 
     const imageUrl = data.sprites.other?.["official-artwork"]?.front_default || data.sprites.front_default;
@@ -173,7 +394,21 @@ function renderBasicInfo(data,speciesData){
     cardWeight.textContent = (data.weight / 10).toFixed(1) + " kg";
     cardBaseExperience.textContent = data.base_experience !== null ? data.base_experience : "N/A";
 
-    cardGeneration.textContent = speciesData?.generation ? formatName(speciesData.generation.name) : "Unknown";
+    const generationName = speciesData?.generation?.name;
+    const generationRoman = generationName?.split("-").pop().toUpperCase();
+    const generationRegions = {
+        "generation-i": "Kanto",
+        "generation-ii": "Johto",
+        "generation-iii": "Hoenn",
+        "generation-iv": "Sinnoh",
+        "generation-v": "Unova",
+        "generation-vi": "Kalos",
+        "generation-vii": "Alola",
+        "generation-viii": "Galar",
+        "generation-ix": "Paldea"
+    };
+    cardGeneration.textContent = generationRoman ? "Generation " + generationRoman : "Unknown";
+    cardRegion.textContent = generationRegions[generationName] || "Unknown";
 
     renderTypes(basicTypes,data.types);
     const shinyImage = data.sprites.other?.["official-artwork"]?.front_shiny || data.sprites.front_shiny;
@@ -266,6 +501,9 @@ async function fetchMove(url){
 function renderMove(entry,data){
     const item = document.createElement("article");
     item.className = "move-item";
+    if(data?.type?.name){
+        item.dataset.type = data.type.name;
+    }
 
 
     const top = document.createElement("div");
@@ -484,6 +722,11 @@ function createSpriteButton(container,label,value,group){
             return;
         }
 
+        if(group === "form"){
+            selectSpriteForm(value);
+            return;
+        }
+
         spriteState[group] = value;
 
         updateSpriteAvailability();
@@ -500,6 +743,8 @@ function updateSpriteButtons(group){
         container = spriteGenderButtons;
     }else if(group === "variant"){
         container = spriteVariantButtons;
+    }else if(group === "form"){
+        container = spriteFormButtons;
     }else{
         container = spriteSourceButtons;
     }
@@ -523,13 +768,15 @@ function updateSpriteAvailability(){
         return;
     }
 
-    const data = currentPokemon;
+    const data = currentSpritePokemon || currentPokemon;
 
     const genderButtons =
         spriteGenderButtons.querySelectorAll(".sprite-btn");
 
     const variantButtons =
         spriteVariantButtons.querySelectorAll(".sprite-btn");
+    const sourceButtons =
+        spriteSourceButtons.querySelectorAll(".sprite-btn");
 
     genderButtons.forEach(function(button){
         let available = true;
@@ -565,6 +812,20 @@ function updateSpriteAvailability(){
         button.disabled = !available;
     });
 
+    sourceButtons.forEach(function(button){
+        let available = true;
+        if(button.dataset.value === "normal"){
+            available = Boolean(getNormalSprite(data, spriteState.gender, spriteState.variant));
+        }else if(button.dataset.value === "official"){
+            available = Boolean(getOfficialArtwork(data, spriteState.variant));
+        }else if(button.dataset.value === "officialShiny"){
+            available = Boolean(getOfficialArtwork(data, "shiny"));
+        }else if(button.dataset.value === "dream"){
+            available = Boolean(getDreamWorldSprite(data, spriteState.gender)) && spriteState.variant !== "shiny";
+        }
+        button.disabled = !available;
+    });
+
     const currentGender = spriteGenderButtons.querySelector( `[data-value="${spriteState.gender}"]`);
 
     if(currentGender?.disabled){
@@ -577,8 +838,14 @@ function updateSpriteAvailability(){
         spriteState.variant = "default";
     }
 
+    const currentSource = spriteSourceButtons.querySelector(`[data-value="${spriteState.source}"]`);
+    if(currentSource?.disabled){
+        spriteState.source = "normal";
+    }
+
     updateSpriteButtons("gender");
     updateSpriteButtons("variant");
+    updateSpriteButtons("form");
     updateSpriteButtons("source");
 }
 
@@ -589,7 +856,7 @@ function getSelectedSprite(){
         return null;
     }
 
-    const data = currentPokemon;
+    const data = currentSpritePokemon || currentPokemon;
 
     if(spriteState.source === "normal"){
         return getNormalSprite( data, spriteState.gender, spriteState.variant);
@@ -630,6 +897,7 @@ function getSpriteDescription(){
 
 function updateSelectedSprite(){
     const imageUrl = getSelectedSprite();
+    const data = currentSpritePokemon || currentPokemon;
 
     if(!imageUrl){
         selectedSpriteImage.removeAttribute("src");
@@ -641,8 +909,7 @@ function updateSelectedSprite(){
         return;
     }
 
-    const name =
-        formatName(currentPokemon.name);
+    const name = formatName(data.name);
 
     selectedSpriteImage.src = imageUrl;
     selectedSpriteImage.alt = name + " sprite";
@@ -651,13 +918,52 @@ function updateSelectedSprite(){
         name + " - " +
         getSpriteDescription();
 }
+
+async function selectSpriteForm(name){
+    const token = ++spriteFormToken;
+    selectedSpriteLabel.textContent = "Loading " + formatName(name) + " form…";
+
+    try{
+        const formData = await fetchPokemon(name);
+        if(token !== spriteFormToken) return;
+        currentSpritePokemon = formData;
+        spriteState.form = name;
+        updateSpriteAvailability();
+        updateSelectedSprite();
+    }catch(error){
+        if(token === spriteFormToken){
+            selectedSpriteLabel.textContent = "This form image could not be loaded.";
+        }
+    }
+}
+
 // Render sprite controls
-function renderSprites(data){
+function renderSprites(data,speciesData){
     spriteGenderButtons.innerHTML = "";
     spriteVariantButtons.innerHTML = "";
+    spriteFormButtons.innerHTML = "";
     spriteSourceButtons.innerHTML = "";
 
-    spriteState = { gender: "male", variant: "default", source: "normal" };
+    spriteFormToken++;
+    currentSpritePokemon = data;
+    spriteState = { gender: "male", variant: "default", form: data.name, source: "normal" };
+
+    const forms = (speciesData?.varieties || []).map(function(variety){
+        return variety.pokemon;
+    }).filter(function(pokemon, index, all){
+        return pokemon?.name && all.findIndex(function(candidate){ return candidate.name === pokemon.name; }) === index;
+    });
+
+    spriteFormGroup.hidden = forms.length < 2;
+    if(forms.length > 1){
+        const defaultVariety = speciesData.varieties.find(function(variety){ return variety.is_default; });
+        if(defaultVariety?.pokemon?.name){
+            spriteState.form = defaultVariety.pokemon.name;
+        }
+        forms.forEach(function(form){
+            createSpriteButton(spriteFormButtons, formatName(form.name), form.name, "form");
+        });
+    }
 
     createSpriteButton( spriteGenderButtons, "Male", "male", "gender");
 
@@ -671,17 +977,12 @@ function renderSprites(data){
 
     createSpriteButton( spriteSourceButtons, "Standard Sprite", "normal", "source");
 
-    if( data.sprites.other?.["official-artwork"]?.front_default){
-        createSpriteButton( spriteSourceButtons, "Official Artwork", "official", "source");
-    }
-    if( data.sprites.other?.["official-artwork"]?.front_shiny){
-        createSpriteButton( spriteSourceButtons, "Official Shiny", "officialShiny", "source");
-    }
-    if( data.sprites.other?.dream_world?.front_default){
-        createSpriteButton( spriteSourceButtons, "Dream World", "dream", "source");
-    }
+    createSpriteButton(spriteSourceButtons, "Official Artwork", "official", "source");
+    createSpriteButton(spriteSourceButtons, "Official Shiny", "officialShiny", "source");
+    createSpriteButton(spriteSourceButtons, "Dream World", "dream", "source");
 
     updateSpriteAvailability();
+    updateSpriteButtons("form");
     updateSelectedSprite();
 }
 
@@ -712,27 +1013,133 @@ function renderPokemon(pokemonData,speciesData){
 
     renderPokemonHeader(pokemonData);
     renderBasicInfo(pokemonData,speciesData);
+    renderEvolutionTree(speciesData);
     renderMoves(pokemonData);
     renderStats(pokemonData);
-    renderSprites(pokemonData);
+    renderSprites(pokemonData,speciesData);
 
     showTab("basic");
 }
+
+function collectEvolutionStages(node, depth, stages){
+    if(!stages[depth]) stages[depth] = [];
+    stages[depth].push(node.species);
+    (node.evolves_to || []).forEach(function(next){
+        collectEvolutionStages(next, depth + 1, stages);
+    });
+}
+
+async function renderEvolutionTree(speciesData){
+    const token = ++evolutionToken;
+    evolutionSection.hidden = true;
+    evolutionTree.replaceChildren();
+
+    const chainUrl = speciesData?.evolution_chain?.url;
+    if(!chainUrl) return;
+
+    try{
+        const response = await fetch(chainUrl);
+        if(!response.ok) throw new Error("Evolution data unavailable");
+        const chainData = await response.json();
+        const stages = [];
+        collectEvolutionStages(chainData.chain, 0, stages);
+        if(stages.flat().length < 2) return;
+
+        const pokemonStages = await Promise.all(stages.map(async function(stage){
+            return await Promise.all(stage.map(async function(species){
+                const match = species.url.match(/\/(\d+)\/?$/);
+                if(!match) return null;
+                try{
+                    const pokemon = await fetchPokemon(match[1]);
+                    return {species, pokemon};
+                }catch(error){
+                    return null;
+                }
+            }));
+        }));
+
+        if(token !== evolutionToken) return;
+        const visibleStages = pokemonStages.map(function(stage){
+            return stage.filter(Boolean);
+        }).filter(function(stage){ return stage.length > 0; });
+        if(visibleStages.flat().length < 2) return;
+
+        visibleStages.forEach(function(stage, index){
+            const stageElement = document.createElement("div");
+            stageElement.className = "evolution-stage" + (stage.length > 1 ? " branch-stage" : "");
+
+            stage.forEach(function(entry){
+                const button = document.createElement("button");
+                const image = document.createElement("img");
+                const name = document.createElement("strong");
+                const number = document.createElement("span");
+                const art = entry.pokemon.sprites.other?.["official-artwork"]?.front_default || entry.pokemon.sprites.front_default;
+
+                button.type = "button";
+                button.className = "evolution-card";
+                button.dataset.searchId = String(entry.pokemon.id);
+                button.title = "View " + formatName(entry.species.name);
+                if(entry.pokemon.id === currentPokemon?.id){
+                    button.classList.add("current-evolution");
+                    button.setAttribute("aria-current", "true");
+                }
+
+                if(art){
+                    image.src = art;
+                    image.alt = "";
+                    image.loading = "lazy";
+                    button.appendChild(image);
+                }
+                name.textContent = formatName(entry.species.name);
+                number.textContent = "#" + String(entry.pokemon.id).padStart(3, "0");
+                button.append(name, number);
+                button.addEventListener("click", function(){
+                    pokemonInput.value = formatName(entry.species.name);
+                    searchPokemon(String(entry.pokemon.id), true);
+                });
+                stageElement.appendChild(button);
+            });
+
+            evolutionTree.appendChild(stageElement);
+            if(index < visibleStages.length - 1){
+                const connector = document.createElement("span");
+                connector.className = "evolution-connector";
+                connector.setAttribute("aria-hidden", "true");
+                connector.textContent = "→";
+                evolutionTree.appendChild(connector);
+            }
+        });
+        evolutionSection.hidden = false;
+    }catch(error){
+        if(token === evolutionToken){
+            evolutionSection.hidden = true;
+        }
+    }
+}
+
 // Search
-async function searchPokemon(name){
-    const query = name.trim().toLowerCase();
+async function searchPokemon(name, updateSearchField = false){
+    const query = normalizePokemonQuery(name);
 
     if(query === ""){
+        activeSearchToken++;
+        searchBtn.disabled = false;
+        searchBtnLabel.textContent = "Search";
         showError( "Please enter a Pokemon name or number.");
         return;
     }
 
+    const searchToken = ++activeSearchToken;
+    evolutionToken++;
+    const lookup = String(pokemonNameIds[query] || query);
     searchBtn.disabled = true;
-    searchBtn.textContent = "Searching...";
+    searchBtnLabel.textContent = "Searching...";
     showLoading();
 
     try{
-        const pokemonData = await fetchPokemon(query);
+        const pokemonData = await fetchPokemon(lookup);
+        if(searchToken !== activeSearchToken) return;
+
         let speciesData = null;
 
         try{
@@ -741,10 +1148,16 @@ async function searchPokemon(name){
             speciesData = null;
         }
 
+        if(searchToken !== activeSearchToken) return;
+        updateAmbientPokemon(speciesData?.generation?.name);
+        if(updateSearchField){
+            pokemonInput.value = formatName(pokemonData.species?.name || pokemonData.name);
+        }
         renderPokemon( pokemonData, speciesData);
         hideStatus();
 
     }catch(error){
+        if(searchToken !== activeSearchToken) return;
         pokemonCard.hidden = true;
 
         currentPokemon = null;
@@ -755,8 +1168,10 @@ async function searchPokemon(name){
         showError(error.message);
 
     }finally{
-        searchBtn.disabled = false;
-        searchBtn.textContent = "Search";
+        if(searchToken === activeSearchToken){
+            searchBtn.disabled = false;
+            searchBtnLabel.textContent = "Search";
+        }
     }
 }
 // Form
@@ -770,15 +1185,19 @@ searchForm.addEventListener("submit",function(event){
 chipButtons.forEach(function(button){
     button.addEventListener("click",function(){
         const name = button.dataset.name;
+        const searchId = button.dataset.searchId;
 
         pokemonInput.value = name;
 
-        searchPokemon(name);
+        searchPokemon(searchId || name, true);
     });
 });
 
 pokemonCard.hidden = true;
 showStatus( "Search for a Pokemon to see its information.", false);
+initializeAmbientPokemon();
 
-// Default Pokemon
-searchPokemon("pikachu");
+// Pick one random entry for the page and keep it out of the five random quick picks.
+const initialPokemonId = randomDexIds(1)[0];
+populateRandomPicks([initialPokemonId]);
+searchPokemon(String(initialPokemonId), true);

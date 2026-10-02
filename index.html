@@ -1,205 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pokedex - Pokemon Explorer</title>
+    <meta name="theme-color" content="#fbf3ff">
+    <meta name="description" content="A field guide to the Pokémon world. Search a species and explore its details, moves, stats, and sprites.">
+    <title>Pokédex — Pokémon Explorer</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-
-    <div class="page">
-        <header class="card header-card">
-            <div>
-                <p class="eyebrow">Pokedex - Pokemon Library</p>
-                <h1>Pokemon Explorer</h1>
-            </div>
-            <span class="badge">PokeAPI</span>
+    <div class="ambient-pokemon" aria-hidden="true"></div>
+    <main class="page">
+        <header class="header-card">
+            <a class="wordmark" href="#top" aria-label="Pokédex home">
+                <span class="wordmark-mark" aria-hidden="true"><span></span></span>
+                <span class="wordmark-copy"><span class="eyebrow">Pokémon explorer</span><strong>POKÉDEX</strong></span>
+            </a>
         </header>
 
-        <section class="card search-card">
-            <p class="eyebrow">Live Search</p>
-            <h2>Find a Pokemon</h2>
+        <section class="intro" id="top" aria-labelledby="pageTitle">
+            <h1 id="pageTitle">Poké<em>dex.</em></h1>
+            <p class="intro-note">Every Pokémon, one search away.</p>
+        </section>
+
+        <section class="search-card" aria-labelledby="searchHeading">
+            <div class="search-heading">
+                <p class="eyebrow">Search by name or number</p>
+                <h2 id="searchHeading">Find a Pokémon</h2>
+            </div>
             <form id="searchForm" class="search-form">
-                <label for="pokemonInput" class="sr-only">
-                    Pokemon name or ID
-                </label>
-                <input type="text" id="pokemonInput" name="pokemon" placeholder="e.g. pikachu or 25" autocomplete="off">
-                <button type="submit" id="searchBtn">
-                    Search
-                </button>
-
+                <label for="pokemonInput" class="sr-only">Pokémon name or Pokédex number</label>
+                <span class="search-symbol" aria-hidden="true">⌕</span>
+                <input type="text" id="pokemonInput" name="pokemon" placeholder="Try Pikachu or 25" autocomplete="off">
+                <button type="submit" id="searchBtn"><span id="searchBtnLabel">Search</span><span aria-hidden="true">↗</span></button>
             </form>
-
             <div class="quick-search">
-
-                <span class="quick-search-label">
-                    Quick search:
-                </span>
-                <button type="button" class="chip-btn" data-name="pikachu"> Pikachu </button>
-                <button type="button" class="chip-btn" data-name="arceus"> Arceus </button>
-                <button type="button" class="chip-btn" data-name="greninja"> Greninja </button>
-                <button type="button" class="chip-btn" data-name="charizard"> Charizard </button>
-                <button type="button" class="chip-btn" data-name="moltres"> Moltres </button>
+                <span class="quick-search-label">Random picks</span>
+                <button type="button" class="chip-btn" data-name="pikachu">Pikachu <span aria-hidden="true">↗</span></button>
+                <button type="button" class="chip-btn" data-name="arceus">Arceus <span aria-hidden="true">↗</span></button>
+                <button type="button" class="chip-btn" data-name="greninja">Greninja <span aria-hidden="true">↗</span></button>
+                <button type="button" class="chip-btn" data-name="charizard">Charizard <span aria-hidden="true">↗</span></button>
+                <button type="button" class="chip-btn" data-name="moltres">Moltres <span aria-hidden="true">↗</span></button>
             </div>
         </section>
 
         <section id="statusArea" class="status-area" aria-live="polite">
-
-            <p id="statusMsg" class="status-msg">
-                Search for a Pokemon to see its information.
-            </p>
-
-            <div id="loadingState" class="loading-state" hidden>
-                <p>Loading Pokemon data...</p>
-            </div>
-
-            <div id="errorState" class="error-state" role="alert" hidden>
-                <p id="errorMessage">
-                    Unable to find this Pokemon.
-                </p>
-            </div>
+            <p id="statusMsg" class="status-msg">Search for a Pokémon to get started.</p>
+            <div id="loadingState" class="loading-state" hidden><span class="loading-mark" aria-hidden="true"></span><p>Loading Pokémon…</p></div>
+            <div id="errorState" class="error-state" role="alert" hidden><span aria-hidden="true">!</span><p id="errorMessage">Unable to find this Pokémon.</p></div>
         </section>
 
-        <article id="pokemonCard" class="card pokemon-card" hidden>
-
+        <article id="pokemonCard" class="pokemon-card" hidden>
             <header class="pokemon-header">
                 <div class="pokemon-identity">
-                    <div class="hero-top">
-                        <p id="cardEyebrow" class="eyebrow"></p>
-                        <p id="cardId" class="card-id"></p>
-                    </div>
-                    <p id="cardTypeLabel" class="type-label"></p>
+                    <div class="hero-top"><p id="cardId" class="card-id"></p></div>
                     <h2 id="cardName" class="card-name"></h2>
-                    <div id="cardTypes" class="type-list" aria-label="Pokemon types"></div>
+                    <div id="cardTypes" class="type-list" aria-label="Pokémon types"></div>
                 </div>
-
-                <div class="main-artwork">
-                    <img src="" alt="" id="cardImage" class="card-image">
-                </div>
+                <div class="main-artwork"><span class="artwork-orbit" aria-hidden="true"></span><img src="" alt="" id="cardImage" class="card-image"></div>
             </header>
 
-            <nav class="pokemon-tabs" aria-label="Pokemon information">
-                <button type="button" class="tab-btn active" id="basicTabBtn" data-tab="basic" aria-controls="basicTab"
-                    aria-selected="true"> Basic Info </button>
-                <button type="button" class="tab-btn" id="movesTabBtn" data-tab="moves" aria-controls="movesTab"
-                    aria-selected="false"> Moves </button>
-                <button type="button" class="tab-btn" id="statsTabBtn" data-tab="stats" aria-controls="statsTab"
-                    aria-selected="false"> Stats </button>
-                <button type="button" class="tab-btn" id="spritesTabBtn" data-tab="sprites" aria-controls="spritesTab"
-                    aria-selected="false"> Sprites </button>
+            <nav class="pokemon-tabs" aria-label="Pokémon information">
+                <button type="button" class="tab-btn active" id="basicTabBtn" data-tab="basic" aria-controls="basicTab" aria-selected="true">Basic info</button>
+                <button type="button" class="tab-btn" id="movesTabBtn" data-tab="moves" aria-controls="movesTab" aria-selected="false">Moves</button>
+                <button type="button" class="tab-btn" id="statsTabBtn" data-tab="stats" aria-controls="statsTab" aria-selected="false">Stats</button>
+                <button type="button" class="tab-btn" id="spritesTabBtn" data-tab="sprites" aria-controls="spritesTab" aria-selected="false">Sprites</button>
             </nav>
             <div class="tab-content">
-
-                <section id="basicTab" class="tab-panel active" data-panel="basic" role="tabpanel"
-                    aria-labelledby="basicTabBtn">
-                    <div class="section-heading">
-                        <p class="eyebrow"> Pokemon Overview </p>
-                        <h3>Basic Information</h3>
-                    </div>
-
+                <section id="basicTab" class="tab-panel active" data-panel="basic" role="tabpanel" aria-labelledby="basicTabBtn">
+                    <div class="section-heading"><h3>Basic information</h3></div>
                     <div class="basic-info-grid">
-                        <div class="info-item">
-                            <p class="info-label"> Height </p>
-                            <p id="cardHeight" class="info-value"></p>
-                        </div>
-
-                        <div class="info-item">
-                            <p class="info-label"> Weight </p>
-                            <p id="cardWeight" class="info-value"></p>
-                        </div>
-
-                        <div class="info-item">
-                            <p class="info-label"> Generation </p>
-                            <p id="cardGeneration" class="info-value"></p>
-                        </div>
-
-                        <div class="info-item">
-                            <p class="info-label"> Base Experience </p>
-                            <p id="cardBaseExperience" class="info-value"></p>
-                        </div>
+                        <div class="info-item"><p class="info-label">Height</p><p id="cardHeight" class="info-value"></p></div>
+                        <div class="info-item"><p class="info-label">Weight</p><p id="cardWeight" class="info-value"></p></div>
+                        <div class="info-item"><p class="info-label">Generation</p><p id="cardGeneration" class="info-value"></p></div>
+                        <div class="info-item"><p class="info-label">Region</p><p id="cardRegion" class="info-value"></p></div>
+                        <div class="info-item"><p class="info-label">Base experience</p><p id="cardBaseExperience" class="info-value"></p></div>
                     </div>
-
-                    <section class="basic-section">
-                        <p class="eyebrow"> Classification </p>
-                        <h3>Types</h3>
-                        <div id="basicTypes" class="type-list"></div>
+                    <div class="basic-lower">
+                        <section class="basic-section"><p class="eyebrow">Classification</p><h3>Known types</h3><div id="basicTypes" class="type-list"></div></section>
+                        <section class="basic-section shiny-section"><div><p class="eyebrow">Rare coloration</p><h3>Shiny study</h3></div><div class="shiny-preview"><img id="basicShinyImage" src="" alt=""></div></section>
+                    </div>
+                    <section id="evolutionSection" class="evolution-section" aria-labelledby="evolutionHeading" hidden>
+                        <div class="section-heading"><h3 id="evolutionHeading">Evolution family</h3></div>
+                        <div id="evolutionTree" class="evolution-tree" aria-label="Clickable Pokémon evolution family"></div>
                     </section>
-
-                    <section class="basic-section">
-                        <p class="eyebrow"> Alternate Appearance </p>
-                        <h3>Shiny Variant</h3>
-                        <div class="shiny-preview">
-                            <img id="basicShinyImage" src="" alt="">
-                        </div>
-                    </section>
-
                 </section>
 
-                <section id="movesTab" class="tab-panel" data-panel="moves" role="tabpanel"
-                    aria-labelledby="movesTabBtn" hidden>
-
-                    <div class="section-heading">
-                        <p class="eyebrow">Pokemon Move Collection</p>
-                        <h3>Moves</h3>
-                        <p class="section-description"> Moves this Pokemon can learn. </p>
-                    </div>
-                    <p id="movesStatus" class="moves-status"></p>
-                    <div id="movesList" class="moves-list"></div>
-                    <button type="button" id="loadMoreMovesBtn" class="load-more-btn" hidden> Load More Moves </button>
+                <section id="movesTab" class="tab-panel" data-panel="moves" role="tabpanel" aria-labelledby="movesTabBtn" hidden>
+                    <div class="section-heading"><div><h3>Moves</h3><p class="section-description">Moves this Pokémon can learn.</p></div></div>
+                    <p id="movesStatus" class="moves-status"></p><div id="movesList" class="moves-list"></div>
+                    <button type="button" id="loadMoreMovesBtn" class="load-more-btn" hidden>Load more moves <span aria-hidden="true">↓</span></button>
                 </section>
 
-                <section id="statsTab" class="tab-panel" data-panel="stats" role="tabpanel"
-                    aria-labelledby="statsTabBtn" hidden>
-                    <div class="section-heading">
-                        <p class="eyebrow"> Battle Profile </p>
-                        <h3>Base Stats</h3>
-                    </div>
-
+                <section id="statsTab" class="tab-panel" data-panel="stats" role="tabpanel" aria-labelledby="statsTabBtn" hidden>
+                    <div class="section-heading"><h3>Base stats</h3></div>
                     <div id="statsList" class="stats-list"></div>
-
-                    <div class="stats-total">
-                        <p class="info-label"> Total Base Stats </p>
-                        <p id="statsTotal" class="info-value"></p>
-                    </div>
+                    <div class="stats-total"><p class="info-label">Combined base stats</p><p id="statsTotal" class="info-value"></p></div>
                 </section>
 
-                <section id="spritesTab" class="tab-panel" data-panel="sprites" role="tabpanel"
-                    aria-labelledby="spritesTabBtn" hidden>
-                    <div class="section-heading">
-                        <p class="eyebrow"> Pokemon Image Collection </p>
-                        <h3>Sprites</h3>
-                        <p class="section-description"> Explore different gender, appearance, and image sources. </p>
-                    </div>
-
-                    <div class="sprite-control-group">
-                        <p class="sprite-control-label"> Gender </p>
-                        <div id="spriteGenderButtons" class="sprite-buttons"> </div>
-                    </div>
-
-                    <div class="sprite-control-group">
-                        <p class="sprite-control-label"> Variant </p>
-                        <div id="spriteVariantButtons" class="sprite-buttons">
+                <section id="spritesTab" class="tab-panel" data-panel="sprites" role="tabpanel" aria-labelledby="spritesTabBtn" hidden>
+                    <div class="section-heading"><div><h3>Sprites</h3><p class="section-description">Choose gender, variant, and image source.</p></div></div>
+                    <div class="sprite-browser">
+                        <div class="sprite-controls">
+                            <div class="sprite-control-group"><p class="sprite-control-label">Gender</p><div id="spriteGenderButtons" class="sprite-buttons"></div></div>
+                            <div class="sprite-control-group"><p class="sprite-control-label">Variant</p><div id="spriteVariantButtons" class="sprite-buttons"></div></div>
+                            <div id="spriteFormGroup" class="sprite-control-group" hidden><p class="sprite-control-label">Form</p><div id="spriteFormButtons" class="sprite-buttons"></div></div>
+                            <div class="sprite-control-group"><p class="sprite-control-label">Image source</p><div id="spriteSourceButtons" class="sprite-buttons"></div></div>
                         </div>
-                    </div>
-
-                    <div class="sprite-control-group">
-                        <p class="sprite-control-label"> Image Source </p>
-                        <div id="spriteSourceButtons" class="sprite-buttons">
-                        </div>
-                    </div>
-                    <div class="selected-sprite">
-                        <img id="selectedSpriteImage" src="" alt="">
-                        <p id="selectedSpriteLabel" class="sprite-label"></p>
+                        <div class="selected-sprite"><img id="selectedSpriteImage" src="" alt=""><p id="selectedSpriteLabel" class="sprite-label"></p></div>
                     </div>
                 </section>
             </div>
         </article>
-    </div>
+
+        <footer class="page-footer"><a href="https://pokeapi.co/" target="_blank" rel="noreferrer">Data and artwork from PokéAPI ↗</a></footer>
+    </main>
     <script src="script.js"></script>
 </body>
-
 </html>
