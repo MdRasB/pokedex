@@ -2,19 +2,19 @@
 const PokeAPI = "https://pokeapi.co/api/v2/pokemon";
 const pokemonCount = 1025;
 const quickSearchPool = [
-    ["pikachu", "electric"], ["arcanine", "fire"], ["bulbasaur", "grass"], ["charizard", "fire"],
-    ["blastoise", "water"], ["gengar", "ghost"], ["dragonite", "dragon"], ["mewtwo", "psychic"],
-    ["umbreon", "dark"], ["espeon", "psychic"], ["tyranitar", "rock"], ["lucario", "fighting"],
-    ["greninja", "water"], ["sylveon", "fairy"], ["gardevoir", "psychic"], ["metagross", "steel"],
-    ["rayquaza", "dragon"], ["kyogre", "water"], ["groudon", "ground"], ["garchomp", "dragon"],
-    ["reshiram", "dragon"], ["zekrom", "dragon"], ["decidueye", "grass"], ["lycanroc", "rock"],
-    ["corviknight", "flying"], ["dragapult", "dragon"], ["ceruledge", "fire"], ["iron-valiant", "fairy"],
-    ["koraidon", "fighting"], ["miraidon", "electric"], ["wooper", "water"], ["spheal", "ice"],
-    ["psyduck", "water"], ["snorlax", "normal"], ["ditto", "normal"], ["jigglypuff", "normal"],
-    ["scizor", "bug"], ["ampharos", "electric"], ["milotic", "water"], ["absol", "dark"],
-    ["zoroark", "dark"], ["mimikyu", "ghost"], ["rockruff", "rock"], ["sprigatito", "grass"],
-    ["fuecoco", "fire"], ["quaxly", "water"], ["pawmi", "electric"], ["tinkaton", "fairy"]
-].map(function([name, type]){ return {name, type}; });
+    ["pikachu", 25, "electric"], ["arcanine", 59, "fire"], ["bulbasaur", 1, "grass"], ["charizard", 6, "fire"],
+    ["blastoise", 9, "water"], ["gengar", 94, "ghost"], ["dragonite", 149, "dragon"], ["mewtwo", 150, "psychic"],
+    ["umbreon", 197, "dark"], ["espeon", 196, "psychic"], ["tyranitar", 248, "rock"], ["lucario", 448, "fighting"],
+    ["greninja", 658, "water"], ["sylveon", 700, "fairy"], ["gardevoir", 282, "psychic"], ["metagross", 376, "steel"],
+    ["rayquaza", 384, "dragon"], ["kyogre", 382, "water"], ["groudon", 383, "ground"], ["garchomp", 445, "dragon"],
+    ["reshiram", 643, "dragon"], ["zekrom", 644, "dragon"], ["decidueye", 724, "grass"], ["lycanroc", 745, "rock"],
+    ["corviknight", 823, "flying"], ["dragapult", 887, "dragon"], ["ceruledge", 937, "fire"], ["iron-valiant", 1006, "fairy"],
+    ["koraidon", 1007, "fighting"], ["miraidon", 1008, "electric"], ["wooper", 194, "water"], ["spheal", 363, "ice"],
+    ["psyduck", 54, "water"], ["snorlax", 143, "normal"], ["ditto", 132, "normal"], ["jigglypuff", 39, "normal"],
+    ["scizor", 212, "bug"], ["ampharos", 181, "electric"], ["milotic", 350, "water"], ["absol", 359, "dark"],
+    ["zoroark", 571, "dark"], ["mimikyu", 778, "ghost"], ["rockruff", 744, "rock"], ["sprigatito", 906, "grass"],
+    ["fuecoco", 909, "fire"], ["quaxly", 912, "water"], ["pawmi", 921, "electric"], ["tinkaton", 957, "fairy"]
+].map(function([name, id, type]){ return {name, id, type}; });
 
 // DOM Elements
 const searchForm = document.getElementById("searchForm");
@@ -53,6 +53,8 @@ const tabPanels = document.querySelectorAll(".tab-panel");
 
 const spriteGenderButtons = document.getElementById("spriteGenderButtons");
 const spriteVariantButtons = document.getElementById("spriteVariantButtons");
+const spriteFormGroup = document.getElementById("spriteFormGroup");
+const spriteFormButtons = document.getElementById("spriteFormButtons");
 const spriteSourceButtons = document.getElementById("spriteSourceButtons");
 
 const selectedSpriteImage = document.getElementById("selectedSpriteImage");
@@ -61,8 +63,10 @@ const selectedSpriteLabel = document.getElementById("selectedSpriteLabel");
 
 // App state
 let currentPokemon = null;
+let currentSpritePokemon = null;
 let currentSpecies = null;
 let activeSearchToken = 0;
+let spriteFormToken = 0;
 
 let moveIndex = 0;
 const movesPerPage = 10;
@@ -71,6 +75,7 @@ let moveLoadToken = 0;
 let spriteState = {
     gender: "male",
     variant: "default",
+    form: "",
     source: "normal"
 };
 
@@ -125,6 +130,7 @@ function populateRandomPicks(){
         arrow.setAttribute("aria-hidden", "true");
         arrow.textContent = "↗";
         button.dataset.name = name;
+        button.dataset.searchId = String(pick.id);
         button.dataset.type = pick.type;
         button.replaceChildren(document.createTextNode(formatName(name) + " "), arrow);
     });
@@ -536,6 +542,11 @@ function createSpriteButton(container,label,value,group){
             return;
         }
 
+        if(group === "form"){
+            selectSpriteForm(value);
+            return;
+        }
+
         spriteState[group] = value;
 
         updateSpriteAvailability();
@@ -552,6 +563,8 @@ function updateSpriteButtons(group){
         container = spriteGenderButtons;
     }else if(group === "variant"){
         container = spriteVariantButtons;
+    }else if(group === "form"){
+        container = spriteFormButtons;
     }else{
         container = spriteSourceButtons;
     }
@@ -575,7 +588,7 @@ function updateSpriteAvailability(){
         return;
     }
 
-    const data = currentPokemon;
+    const data = currentSpritePokemon || currentPokemon;
 
     const genderButtons =
         spriteGenderButtons.querySelectorAll(".sprite-btn");
@@ -631,6 +644,7 @@ function updateSpriteAvailability(){
 
     updateSpriteButtons("gender");
     updateSpriteButtons("variant");
+    updateSpriteButtons("form");
     updateSpriteButtons("source");
 }
 
@@ -641,7 +655,7 @@ function getSelectedSprite(){
         return null;
     }
 
-    const data = currentPokemon;
+    const data = currentSpritePokemon || currentPokemon;
 
     if(spriteState.source === "normal"){
         return getNormalSprite( data, spriteState.gender, spriteState.variant);
@@ -682,6 +696,7 @@ function getSpriteDescription(){
 
 function updateSelectedSprite(){
     const imageUrl = getSelectedSprite();
+    const data = currentSpritePokemon || currentPokemon;
 
     if(!imageUrl){
         selectedSpriteImage.removeAttribute("src");
@@ -693,8 +708,7 @@ function updateSelectedSprite(){
         return;
     }
 
-    const name =
-        formatName(currentPokemon.name);
+    const name = formatName(data.name);
 
     selectedSpriteImage.src = imageUrl;
     selectedSpriteImage.alt = name + " sprite";
@@ -703,13 +717,52 @@ function updateSelectedSprite(){
         name + " - " +
         getSpriteDescription();
 }
+
+async function selectSpriteForm(name){
+    const token = ++spriteFormToken;
+    selectedSpriteLabel.textContent = "Loading " + formatName(name) + " form…";
+
+    try{
+        const formData = await fetchPokemon(name);
+        if(token !== spriteFormToken) return;
+        currentSpritePokemon = formData;
+        spriteState.form = name;
+        updateSpriteAvailability();
+        updateSelectedSprite();
+    }catch(error){
+        if(token === spriteFormToken){
+            selectedSpriteLabel.textContent = "This form image could not be loaded.";
+        }
+    }
+}
+
 // Render sprite controls
-function renderSprites(data){
+function renderSprites(data,speciesData){
     spriteGenderButtons.innerHTML = "";
     spriteVariantButtons.innerHTML = "";
+    spriteFormButtons.innerHTML = "";
     spriteSourceButtons.innerHTML = "";
 
-    spriteState = { gender: "male", variant: "default", source: "normal" };
+    spriteFormToken++;
+    currentSpritePokemon = data;
+    spriteState = { gender: "male", variant: "default", form: data.name, source: "normal" };
+
+    const forms = (speciesData?.varieties || []).map(function(variety){
+        return variety.pokemon;
+    }).filter(function(pokemon, index, all){
+        return pokemon?.name && all.findIndex(function(candidate){ return candidate.name === pokemon.name; }) === index;
+    });
+
+    spriteFormGroup.hidden = forms.length < 2;
+    if(forms.length > 1){
+        const defaultVariety = speciesData.varieties.find(function(variety){ return variety.is_default; });
+        if(defaultVariety?.pokemon?.name){
+            spriteState.form = defaultVariety.pokemon.name;
+        }
+        forms.forEach(function(form){
+            createSpriteButton(spriteFormButtons, formatName(form.name), form.name, "form");
+        });
+    }
 
     createSpriteButton( spriteGenderButtons, "Male", "male", "gender");
 
@@ -734,6 +787,7 @@ function renderSprites(data){
     }
 
     updateSpriteAvailability();
+    updateSpriteButtons("form");
     updateSelectedSprite();
 }
 
@@ -766,7 +820,7 @@ function renderPokemon(pokemonData,speciesData){
     renderBasicInfo(pokemonData,speciesData);
     renderMoves(pokemonData);
     renderStats(pokemonData);
-    renderSprites(pokemonData);
+    renderSprites(pokemonData,speciesData);
 
     showTab("basic");
 }
@@ -830,10 +884,11 @@ searchForm.addEventListener("submit",function(event){
 chipButtons.forEach(function(button){
     button.addEventListener("click",function(){
         const name = button.dataset.name;
+        const searchId = button.dataset.searchId;
 
         pokemonInput.value = name;
 
-        searchPokemon(name);
+        searchPokemon(searchId || name);
     });
 });
 
