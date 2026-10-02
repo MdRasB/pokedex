@@ -10,7 +10,7 @@ const searchBtn = document.getElementById("searchBtn");
 const searchBtnLabel = document.getElementById("searchBtnLabel");
 const chipButtons = document.querySelectorAll(".chip-btn");
 const ambientPokemon = document.querySelector(".ambient-pokemon");
-const ambientSpriteCount = 24;
+const ambientSpriteCount = 48;
 const ambientTypeCache = new Map();
 
 const statusMsg = document.getElementById("statusMsg");
@@ -134,28 +134,39 @@ function randomDexIds(count, excludedIds = []){
 }
 
 function initializeAmbientPokemon(){
-    const columns = [0, 17, 34, 51, 68, 85];
-    const staggeredColumns = [8, 25, 42, 59, 76, null];
-
     for(let index = 0; index < ambientSpriteCount; index++){
-        const row = Math.floor(index / 6);
-        const column = index % 6;
         const image = document.createElement("img");
-        const left = row % 2 === 0 ? columns[column] : staggeredColumns[column];
-
         image.alt = "";
         image.decoding = "async";
         image.fetchPriority = "low";
-        image.dataset.row = String(row);
-        image.style.top = (row * 12) + "vh";
-        image.style.zIndex = String(4 - row);
-        if(left === null){
-            image.style.right = "0";
-        }else{
-            image.style.left = left + "%";
-        }
         ambientPokemon.appendChild(image);
     }
+
+    layoutAmbientPokemon();
+}
+
+function layoutAmbientPokemon(){
+    const columns = [1.2, 13.5, 25.8, 38.1, 50.4, 62.7, 75, 87.3];
+    const staggeredColumns = [7.35, 19.65, 31.95, 44.25, 56.55, 68.85, 81.15, null];
+    const rowSpacing = window.innerWidth <= 800 ? 13 : window.innerWidth <= 1000 ? 9.5 : 8.5;
+
+    ambientPokemon.querySelectorAll("img").forEach(function(image, index){
+        const row = Math.floor(index / 8);
+        const column = index % 8;
+        const left = row % 2 === 0 ? columns[column] : staggeredColumns[column];
+
+        image.dataset.row = String(row);
+        image.style.top = (row * rowSpacing + Math.random() * 1.2) + "vh";
+        image.style.zIndex = String(6 - row);
+        image.style.right = left === null ? "0" : "auto";
+        image.style.left = left === null ? "auto" : left + "%";
+        if(!image.dataset.scale){
+            const scale = .86 + Math.random() * .24;
+            const tilt = -6 + Math.random() * 12;
+            image.dataset.scale = scale.toFixed(2);
+            image.style.transform = "rotate(" + tilt.toFixed(1) + "deg) scale(" + image.dataset.scale + ")";
+        }
+    });
 }
 
 function shuffleItems(items){
@@ -190,12 +201,6 @@ async function updateAmbientPokemon(primaryType){
 
         if(token !== ambientTypeToken || speciesIds.length === 0) return;
         ambientSelectedIds = shuffleItems(speciesIds).slice(0, ambientSpriteCount);
-        if(ambientSelectedIds.length < ambientSpriteCount){
-            const originalIds = ambientSelectedIds.slice();
-            while(ambientSelectedIds.length < ambientSpriteCount){
-                ambientSelectedIds.push(originalIds[ambientSelectedIds.length % originalIds.length]);
-            }
-        }
         renderAmbientPokemonSprites();
         ambientPokemon.dataset.type = primaryType;
     }catch(error){
@@ -206,13 +211,19 @@ async function updateAmbientPokemon(primaryType){
 function renderAmbientPokemonSprites(){
     if(ambientSelectedIds.length === 0) return;
     const images = ambientPokemon.querySelectorAll("img");
-    const visibleCount = window.matchMedia("(max-width: 560px)").matches ? 2 : ambientSpriteCount;
+    const visibleCount = window.matchMedia("(max-width: 560px)").matches
+        ? 2
+        : window.matchMedia("(max-width: 800px)").matches ? 32
+        : window.matchMedia("(max-width: 1000px)").matches ? 40
+        : ambientSpriteCount;
 
     images.forEach(function(image, index){
-        if(index >= visibleCount){
+        if(index >= visibleCount || index >= ambientSelectedIds.length){
             image.removeAttribute("src");
+            image.hidden = true;
             return;
         }
+        image.hidden = false;
         const pokemonId = ambientSelectedIds[index % ambientSelectedIds.length];
         image.src = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/" + pokemonId + ".png";
     });
@@ -221,7 +232,10 @@ function renderAmbientPokemonSprites(){
 let ambientResizeTimer;
 window.addEventListener("resize", function(){
     clearTimeout(ambientResizeTimer);
-    ambientResizeTimer = setTimeout(renderAmbientPokemonSprites, 120);
+    ambientResizeTimer = setTimeout(function(){
+        layoutAmbientPokemon();
+        renderAmbientPokemonSprites();
+    }, 120);
 });
 
 async function populateRandomPicks(excludedIds = []){
