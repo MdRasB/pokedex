@@ -1,5 +1,20 @@
 // API
 const PokeAPI = "https://pokeapi.co/api/v2/pokemon";
+const pokemonCount = 1025;
+const quickSearchPool = [
+    ["pikachu", "electric"], ["arcanine", "fire"], ["bulbasaur", "grass"], ["charizard", "fire"],
+    ["blastoise", "water"], ["gengar", "ghost"], ["dragonite", "dragon"], ["mewtwo", "psychic"],
+    ["umbreon", "dark"], ["espeon", "psychic"], ["tyranitar", "rock"], ["lucario", "fighting"],
+    ["greninja", "water"], ["sylveon", "fairy"], ["gardevoir", "psychic"], ["metagross", "steel"],
+    ["rayquaza", "dragon"], ["kyogre", "water"], ["groudon", "ground"], ["garchomp", "dragon"],
+    ["reshiram", "dragon"], ["zekrom", "dragon"], ["decidueye", "grass"], ["lycanroc", "rock"],
+    ["corviknight", "flying"], ["dragapult", "dragon"], ["ceruledge", "fire"], ["iron-valiant", "fairy"],
+    ["koraidon", "fighting"], ["miraidon", "electric"], ["wooper", "water"], ["spheal", "ice"],
+    ["psyduck", "water"], ["snorlax", "normal"], ["ditto", "normal"], ["jigglypuff", "normal"],
+    ["scizor", "bug"], ["ampharos", "electric"], ["milotic", "water"], ["absol", "dark"],
+    ["zoroark", "dark"], ["mimikyu", "ghost"], ["rockruff", "rock"], ["sprigatito", "grass"],
+    ["fuecoco", "fire"], ["quaxly", "water"], ["pawmi", "electric"], ["tinkaton", "fairy"]
+].map(function([name, type]){ return {name, type}; });
 
 // DOM Elements
 const searchForm = document.getElementById("searchForm");
@@ -71,6 +86,30 @@ function formatName(text){
         words[i] = words[i].charAt(0).toUpperCase() + words[i].slice(1);
     }
     return words.join(" ");
+}
+
+function shuffle(items){
+    const result = items.slice();
+    for(let i = result.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+}
+
+function populateRandomPicks(){
+    const picks = shuffle(quickSearchPool).slice(0, chipButtons.length);
+
+    chipButtons.forEach(function(button, index){
+        const pick = picks[index];
+        const name = pick.name;
+        const arrow = document.createElement("span");
+        arrow.setAttribute("aria-hidden", "true");
+        arrow.textContent = "↗";
+        button.dataset.name = name;
+        button.dataset.type = pick.type;
+        button.replaceChildren(document.createTextNode(formatName(name) + " "), arrow);
+    });
 }
 
 
@@ -775,5 +814,6 @@ chipButtons.forEach(function(button){
 pokemonCard.hidden = true;
 showStatus( "Search for a Pokemon to see its information.", false);
 
-// Default Pokemon
-searchPokemon("pikachu");
+// Start with a different Pokédex entry and set of type-colored picks on each visit.
+populateRandomPicks();
+searchPokemon(String(1 + Math.floor(Math.random() * pokemonCount)));
