@@ -14,6 +14,8 @@
     --mono: 'JetBrainsMono Nerd Font', 'CaskaydiaCove Nerd Font', 'DejaVu Sans Mono', monospace;
     --display: 'Arial Black', Impact, 'DejaVu Sans', sans-serif;
     --sans: Arial, 'DejaVu Sans', sans-serif;
+    --scene-type: #6257e8;
+    --scene-body: #b9b7cf;
 }
 
 * { box-sizing: border-box; }
@@ -37,17 +39,9 @@ body::before {
     inset: -24%;
     content: '';
     pointer-events: none;
-    background:
-        radial-gradient(ellipse at 12% 12%, rgba(255, 56, 125, .69), transparent 31%),
-        radial-gradient(ellipse at 79% 10%, rgba(255, 166, 22, .7), transparent 29%),
-        radial-gradient(ellipse at 93% 49%, rgba(29, 183, 255, .65), transparent 31%),
-        radial-gradient(ellipse at 69% 92%, rgba(52, 211, 118, .61), transparent 29%),
-        radial-gradient(ellipse at 13% 77%, rgba(124, 69, 255, .67), transparent 33%),
-        radial-gradient(ellipse at 49% 39%, rgba(222, 85, 255, .46), transparent 43%),
-        radial-gradient(ellipse at 58% 81%, rgba(42, 220, 206, .45), transparent 40%),
-        radial-gradient(ellipse at 49% 47%, rgba(255, 255, 255, .12), transparent 44%);
-    background-size: 120% 120%;
-    filter: saturate(1.3);
+    background: linear-gradient(128deg, var(--scene-type) 0%, color-mix(in srgb, var(--scene-type) 48%, var(--scene-body)) 52%, var(--scene-body) 100%);
+    background-size: 100% 100%;
+    filter: saturate(1.18);
     animation: color-drift 24s ease-in-out infinite alternate;
 }
 
@@ -123,7 +117,7 @@ img { display: block; max-width: 100%; }
 .search-symbol { width: 31px; color: var(--violet); font: 29px/1 var(--sans); transform: rotate(-15deg); }
 .search-form input { flex: 1; min-width: 0; height: 46px; padding: 0 10px 0 0; border: 0; outline: none; color: var(--ink); background: transparent; font-size: 14px; }
 .search-form input::placeholder { color: #8b8ba6; }
-.search-form button { display: inline-flex; align-items: center; justify-content: space-between; gap: 15px; align-self: stretch; min-width: 111px; margin: 3px; padding: 0 16px; border: 0; border-radius: 999px; color: white; background: linear-gradient(115deg, #6559e8, #8a55dd 65%, #b34fc5); font-size: 11px; font-weight: 700; box-shadow: 0 4px 10px rgba(91, 71, 198, .2); transition: transform .2s, box-shadow .2s, filter .2s; }
+.search-form button { display: inline-flex; align-items: center; justify-content: space-between; gap: 15px; align-self: stretch; min-width: 111px; margin: 3px; padding: 0 16px; border: 0; border-radius: 999px; color: white; background: #6559e8; font-size: 11px; font-weight: 700; box-shadow: 0 4px 10px rgba(91, 71, 198, .2); transition: transform .2s, box-shadow .2s, filter .2s; }
 .search-form button span:last-child { color: #dedbff; font-size: 15px; }
 .search-form button:hover { transform: translateY(-1px); box-shadow: 0 7px 14px rgba(91, 71, 198, .25); filter: saturate(1.2); }
 .search-form button:disabled { cursor: wait; opacity: .65; }

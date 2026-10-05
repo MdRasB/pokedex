@@ -12,6 +12,18 @@ const chipButtons = document.querySelectorAll(".chip-btn");
 const ambientPokemon = document.querySelector(".ambient-pokemon");
 const ambientSpriteCount = 40;
 const ambientGenerationCache = new Map();
+const typeSceneColors = {
+    normal: "#b3aa91", fire: "#ee7443", water: "#438bd4", electric: "#d4ae27",
+    grass: "#5eae56", ice: "#58b9c7", fighting: "#d65d4d", poison: "#a65fc7",
+    ground: "#bd8440", flying: "#748fdf", psychic: "#df628c", bug: "#899b28",
+    rock: "#a8894e", ghost: "#665097", dragon: "#5440c4", dark: "#514554",
+    steel: "#66829a", fairy: "#dc75a7", stellar: "#47a99d", shadow: "#534778"
+};
+const speciesSceneColors = {
+    black: "#343647", blue: "#438bd4", brown: "#ad7650", gray: "#8792a4",
+    green: "#52a874", pink: "#dc8cae", purple: "#976ec3", red: "#cf5b4f",
+    white: "#dce6ee", yellow: "#e7c54b"
+};
 
 const statusMsg = document.getElementById("statusMsg");
 const loadingState = document.getElementById("loadingState");
@@ -387,6 +399,14 @@ function renderPokemonHeader(data){
         cardImage.removeAttribute("src");
         cardImage.alt = "No artwork available";
     }
+}
+function updatePagePalette(data,speciesData){
+    const primaryType = data.types?.[0]?.type?.name;
+    const speciesColor = speciesData?.color?.name;
+    const rootStyle = document.documentElement.style;
+
+    rootStyle.setProperty("--scene-type", typeSceneColors[primaryType] || "#6257e8");
+    rootStyle.setProperty("--scene-body", speciesSceneColors[speciesColor] || "#b9b7cf");
 }
 // Basic information
 function renderBasicInfo(data,speciesData){
@@ -1011,6 +1031,7 @@ function renderPokemon(pokemonData,speciesData){
     currentPokemon = pokemonData;
     currentSpecies = speciesData;
 
+    updatePagePalette(pokemonData,speciesData);
     renderPokemonHeader(pokemonData);
     renderBasicInfo(pokemonData,speciesData);
     renderEvolutionTree(speciesData);
