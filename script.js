@@ -70,6 +70,10 @@ const selectedSpriteLabel = document.getElementById("selectedSpriteLabel");
 let currentPokemon = null;
 let currentSpritePokemon = null;
 let currentSpecies = null;
+let defaultLoadedPokemonId = null;
+let currentRandomPickIds = [];
+let searchesSincePickRefresh = 0;
+let randomPickToken = 0;
 let activeSearchToken = 0;
 let spriteFormToken = 0;
 let evolutionToken = 0;
@@ -289,6 +293,8 @@ window.addEventListener("resize", function(){
 
 async function populateRandomPicks(excludedIds = []){
     const picks = randomDexIds(chipButtons.length, excludedIds);
+    const token = ++randomPickToken;
+    currentRandomPickIds = picks.slice();
 
     await Promise.all(Array.from(chipButtons).map(async function(button, index){
         const id = picks[index];
@@ -303,15 +309,29 @@ async function populateRandomPicks(excludedIds = []){
 
         try{
             const data = await fetchPokemon(String(id));
+            if(token !== randomPickToken) return;
             const name = data.species?.name || data.name;
             button.dataset.name = name;
             button.dataset.type = data.types?.[0]?.type?.name || "unknown";
             button.title = "Search " + formatName(name) + " (Pokédex #" + id + ")";
             button.replaceChildren(document.createTextNode(formatName(name) + " "), arrow);
         }catch(error){
+            if(token !== randomPickToken) return;
             button.dataset.name = "Pokémon #" + id;
         }
     }));
+}
+
+function recordSuccessfulSearch(pokemonId){
+    searchesSincePickRefresh++;
+    if(searchesSincePickRefresh < chipButtons.length) return;
+
+    searchesSincePickRefresh = 0;
+    populateRandomPicks([
+        ...currentRandomPickIds,
+        defaultLoadedPokemonId,
+        pokemonId
+    ]);
 }
 
 
@@ -1139,7 +1159,7 @@ async function renderEvolutionTree(speciesData){
 }
 
 // Search
-async function searchPokemon(name, updateSearchField = false){
+async function searchPokemon(name, updateSearchField = false, isInitialLoad = false){
     const query = normalizePokemonQuery(name);
 
     if(query === ""){
@@ -1176,6 +1196,9 @@ async function searchPokemon(name, updateSearchField = false){
         }
         renderPokemon( pokemonData, speciesData);
         hideStatus();
+        if(!isInitialLoad){
+            recordSuccessfulSearch(pokemonData.id);
+        }
 
     }catch(error){
         if(searchToken !== activeSearchToken) return;
@@ -1219,6 +1242,6 @@ showStatus( "Search for a Pokemon to see its information.", false);
 initializeAmbientPokemon();
 
 // Pick one random entry for the page and keep it out of the five random quick picks.
-const initialPokemonId = randomDexIds(1)[0];
-populateRandomPicks([initialPokemonId]);
-searchPokemon(String(initialPokemonId), true);
+defaultLoadedPokemonId = randomDexIds(1)[0];
+populateRandomPicks([defaultLoadedPokemonId]);
+searchPokemon(String(defaultLoadedPokemonId), true, true);
