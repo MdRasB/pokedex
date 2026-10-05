@@ -1,6 +1,6 @@
 // API
 const PokeAPI = "https://pokeapi.co/api/v2/pokemon";
-const pokemonCount = 1026;
+const pokemonCount = 1025;
 const pokemonNameIds = { mimikyu: 778, lycanroc: 745 };
 
 // DOM Elements
